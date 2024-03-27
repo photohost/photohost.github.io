@@ -1,19 +1,19 @@
 <!DOCTYPE html>
-<html data-color-mode="light" data-dark-theme="dark_colorblind" data-light-theme="light" lang="en">
+<html data-color-mode="light" data-dark-theme="dark_colorblind" data-light-theme="dark_colorblind" lang="en">
 <head>
     <meta content="text/html; charset=utf-8" http-equiv="content-type" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <link href="//cdn.staticfile.net/Primer/21.0.7/primer.css" rel="stylesheet" />
-    <link rel="icon" href="https://github.githubassets.com/favicons/favicon.svg">
+    <link rel="icon" href="https://i.postimg.cc/qRZQwVqy/channels4_profile.jpg">
     <script>
         if(localStorage.getItem("meek_theme")==null){}
         else if(localStorage.getItem("meek_theme")=="dark"){document.getElementsByTagName("html")[0].attributes.getNamedItem("data-color-mode").value="dark";}
         else if(localStorage.getItem("meek_theme")=="light"){document.getElementsByTagName("html")[0].attributes.getNamedItem("data-color-mode").value="light";}
     </script>
     
-<meta name="description" content="NEW WORLD search page">
-<title>NEW WORLD - Tag</title>
+<meta name="description" content="未完待續 search page">
+<title>未完待續 - Tag</title>
 
 </head>
 <style>
@@ -58,7 +58,7 @@ body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;
             <path id="searchSVG" fill-rule="evenodd"></path>
         </svg>
     </div>
-    <a href="https://photohost.github.io/photohost/"><button id="buttonHome" class="btn btn-invisible circle" title="home">
+    <a href="https://harunoji.one"><button id="buttonHome" class="btn btn-invisible circle" title="home">
         <svg class="octicon" width="16" height="16">
             <path id="pathHome" fill-rule="evenodd"></path>
         </svg>
@@ -75,7 +75,7 @@ body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;
 <nav class="SideNav"></nav>
 <div class="notFind" style="display:none;font-size:24px;margin:8px;">Not Find</div>
 </div>
-    <div id="footer">Copyright © <span id="year"></span><a href="https://photohost.github.io/photohost/"> NEW WORLD </a>
+    <div id="footer">Copyright © <span id="year"></span><a href="https://harunoji.one"> 未完待續 </a>
 <p>
 <span id="runday"></span>Powered by <a href="https://meekdai.com/Gmeek.html" target="_blank">Gmeek</a>
 </p>
@@ -221,7 +221,7 @@ function setClassDisplay(lable){
     let lists = document.getElementsByClassName("lists");
     let tagTitle = document.getElementsByClassName("tagTitle")[0];
     tagTitle.innerHTML="Tag #"+lable;
-    document.title=lable+" - NEW WORLD";
+    document.title=lable+" - 未完待續";
     document.getElementsByClassName("subnav-search-input")[0].value='';
     if(lable=="All"){
         for(let i = 0; i < lists.length; i++){lists[i].style.display='block';}
@@ -249,8 +249,8 @@ function searchShow(){
     let tagTitle = document.getElementsByClassName("tagTitle")[0];
     let searchInput = document.getElementsByClassName("subnav-search-input")[0].value;
     tagTitle.innerHTML="Search #"+searchInput;
-    if(searchInput==''){document.title="Search - NEW WORLD";}
-    else{document.title=searchInput+" - NEW WORLD";}
+    if(searchInput==''){document.title="Search - 未完待續";}
+    else{document.title=searchInput+" - 未完待續";}
     let a=0;
     window.location.hash="#"+(searchInput);
     for(let i = 0; i < lists.length; i++){
