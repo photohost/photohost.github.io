@@ -13,3 +13,4 @@
 希望我有一天，或是被迫，可以將我身上的事物全部拋棄，只剩下能夠陪伴長久的事物，我想那是比戀愛還有感到富足的一件事。
 
 <!-- ##{"script":"<script async src='//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js'></script>"}## -->
+<!-- ##{"timestamp":253389225600}## -->
