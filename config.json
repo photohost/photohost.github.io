@@ -8,7 +8,7 @@
     "faviconUrl":"https://i.postimg.cc/qRZQwVqy/channels4_profile.jpg",
     "startSite":"03/26/2024",
     "onePageListNum":15,
-    "singlePage":["about"],
+    "singlePage":["link"],
     "iconList":{"circle":"M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z"},
     "commentLabelColor":"#006b75",
     "yearColorList":["#bc4c00", "#0969da", "#1f883d", "#A333D0"],
@@ -17,6 +17,7 @@
     "nightTheme":"dark_colorblind",
     "dayTheme":"dark_colorblind",
     "urlMode":"ru_translit",
+    "showPostSource":"0",
     "style":"<style>#postBody{font-size:20px}</style>",
     "script":"<script async src='//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js'></script>"
 }
