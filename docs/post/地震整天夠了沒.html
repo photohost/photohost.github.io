@@ -4,7 +4,7 @@
     <meta content="text/html; charset=utf-8" http-equiv="content-type" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <link href="//cdn.staticfile.net/Primer/21.0.7/primer.css" rel="stylesheet" />
+    <link href='https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/Primer/21.0.7/primer.css' rel='stylesheet' />
     <link rel="icon" href="https://i.postimg.cc/qRZQwVqy/channels4_profile.jpg">
 <meta name="description" content="昨天完浪人崛起到凌晨，因為休假就作息崩壞
 沒想到人生第一次被大自然喚醒，八點整個人直接跳起來衝出門，我媽卻老神在在繼續看電視= =
@@ -80,8 +80,10 @@ body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;
 好想繼續待在家裡吹冷氣，順便稍微改造一下房間的...就是不想出門...然後再偷偷點一次麥當當...<br>
 明天親戚一堆回來又不能明目張膽去領外送...越想越苦...</p></div>
 <div style="font-size:small;margin-top:8px;float:right;">Less is best</div>
+
 <button class="btn btn-block" type="button" onclick="openComments()" id="cmButton">comments</button>
 <div class="comments" id="comments"></div>
+
 </div>
     <div id="footer">Copyright © <span id="year"></span><a href="https://blog.harunoji.one"> 未完待續 </a>
 <p>
@@ -111,6 +113,8 @@ console.log("\n %c Gmeek last https://github.com/Meekdai/Gmeek \n\n","padding:5p
 <script>
 document.getElementById("pathHome").setAttribute("d",IconList["home"]);
 document.getElementById("pathIssue").setAttribute("d",IconList["github"]);
+
+
 
 function openComments(){
     cm=document.getElementById("comments");

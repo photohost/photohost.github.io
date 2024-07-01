@@ -4,7 +4,7 @@
     <meta content="text/html; charset=utf-8" http-equiv="content-type" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <link href="//cdn.staticfile.net/Primer/21.0.7/primer.css" rel="stylesheet" />
+    <link href='https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/Primer/21.0.7/primer.css' rel='stylesheet' />
     <link rel="icon" href="https://i.postimg.cc/qRZQwVqy/channels4_profile.jpg">
 <meta name="description" content="簡單交待一下這次去台北跨年
 其實往常對跨年無感，不是在睡覺就是在玩遊戲的路上，大不了在群組道賀一下
@@ -140,8 +140,10 @@ ber叫車超難叫<br>
 5.身體健康</p>
 </div>
 <div style="font-size:small;margin-top:8px;float:right;">Less is best</div>
+
 <button class="btn btn-block" type="button" onclick="openComments()" id="cmButton">comments</button>
 <div class="comments" id="comments"></div>
+
 </div>
     <div id="footer">Copyright © <span id="year"></span><a href="https://blog.harunoji.one"> 未完待續 </a>
 <p>
@@ -171,6 +173,8 @@ console.log("\n %c Gmeek last https://github.com/Meekdai/Gmeek \n\n","padding:5p
 <script>
 document.getElementById("pathHome").setAttribute("d",IconList["home"]);
 document.getElementById("pathIssue").setAttribute("d",IconList["github"]);
+
+
 
 function openComments(){
     cm=document.getElementById("comments");

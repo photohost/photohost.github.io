@@ -4,7 +4,7 @@
     <meta content="text/html; charset=utf-8" http-equiv="content-type" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <link href="//cdn.staticfile.net/Primer/21.0.7/primer.css" rel="stylesheet" />
+    <link href='https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/Primer/21.0.7/primer.css' rel='stylesheet' />
     <link rel="icon" href="https://i.postimg.cc/qRZQwVqy/channels4_profile.jpg">
 <meta name="description" content="我很喜歡[Kotoha的翻唱](https://youtu.">
 <meta property="og:title" content="Countdown to FY 08">
@@ -73,8 +73,10 @@ body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;
 在我家沒工作的人會被鄙視的很慘，以前放寒暑假無所事事當廢人，整天就被念，可以把我念到活不下去的地步。算了，船到橋頭自然直，我又不是很希望我可以活很久，未來的事情給未來的我去處理。</p>
 </div>
 <div style="font-size:small;margin-top:8px;float:right;">Less is best</div>
+
 <button class="btn btn-block" type="button" onclick="openComments()" id="cmButton">comments</button>
 <div class="comments" id="comments"></div>
+
 </div>
     <div id="footer">Copyright © <span id="year"></span><a href="https://blog.harunoji.one"> 未完待續 </a>
 <p>
@@ -104,6 +106,8 @@ console.log("\n %c Gmeek last https://github.com/Meekdai/Gmeek \n\n","padding:5p
 <script>
 document.getElementById("pathHome").setAttribute("d",IconList["home"]);
 document.getElementById("pathIssue").setAttribute("d",IconList["github"]);
+
+
 
 function openComments(){
     cm=document.getElementById("comments");
