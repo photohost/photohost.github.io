@@ -7,7 +7,6 @@
     "homeUrl":"https://blog.harunoji.one",
     "faviconUrl":"https://i.postimg.cc/qRZQwVqy/channels4_profile.jpg",
     "startSite":"03/26/2024",
-    "onePageListNum":15,
     "singlePage":["link"],
     "iconList":{"circle":"M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z"},
     "commentLabelColor":"#006b75",
