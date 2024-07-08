@@ -19,7 +19,9 @@
     "nightTheme":"dark-blue",
     "dayTheme":"dark_colorblind",
     "urlMode":"ru_translit",
+    "onePageListNum":"10",
     "showPostSource":"0",
+    "needComment":"0",
     "bottomText":"Less is best",
     "style":"<style>#postBody{font-size:20px}</style>",
     "script":"<script async src='//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js'></script>"
