@@ -1,6 +1,6 @@
 {
     "title":"未完待續",
-    "subTitle":"自言自語，自殘自傷，自哭自笑",
+    "subTitle":"把起點當成終點",
     "avatarUrl":"https://s2.loli.net/2024/06/04/CFf69MPt3VKkBDZ.gif",
     "GMEEK_VERSION":"last",
     "displayTitle":"殘願未燼",
@@ -22,9 +22,8 @@
     "showPostSource":"0",
     "needComment":"0",
     "bottomText":"Less is best",
-    "primerCSS":"<link href='https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/Primer/21.0.7/primer.css' rel='stylesheet' />",
     "style":"",
     "allHead":"<script src='https://blog.meekdai.com/Gmeek/plugins/GmeekVercount.js'></script>",
     "primerCSS":"<link href='https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/Primer/21.0.7/primer.css' rel='stylesheet' />",
-    "script":""
+    "script":"<script src='https://blog.meekdai.com/Gmeek/plugins/GmeekTOC.js'></script><script src='https://blog.meekdai.com/Gmeek/plugins/lightbox.js'></script>"
 }
