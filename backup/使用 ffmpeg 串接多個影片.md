@@ -24,3 +24,12 @@
 我就不寫下來備份了
 
 [該篇來源在此](https://annkuoq.github.io/blog/2021-05-08-how-to-combine-videos-using-ffmpeg/)
+
+11/13補充
+如果Operation not permitted、Unsafe file name 報錯，把txt內雙引號
+
+> file "01.mp4"
+
+改成單引
+
+> file '01.mp4'
