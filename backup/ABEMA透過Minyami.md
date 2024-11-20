@@ -21,5 +21,5 @@
 1. 登入ABEMA，開VPN去日本
 2. 挑你想看的影片
 3. 這時右上角擴充程式會有東西 ![](https://cdn.jsdelivr.net/gh/photohost/picx-images-hosting@master/hostassPixPin_2024-11-18_20-50-04.7zqgi3cjyx.jpg)
-4. 複製後黏貼到npx.cmd的視窗，就會自動下載
+4. 複製後黏貼到npx.cmd的視窗，就會自動下載![](https://cdn.jsdelivr.net/gh/photohost/picx-images-hosting@master/hostassPixPin_2024-11-20_12-20-32.1hs8rrw3x2.jpg)![](https://cdn.jsdelivr.net/gh/photohost/picx-images-hosting@master/hostassPixPin_2024-11-20_12-21-30.4xukjv5qze.jpg)
 5. 下載後的格式.TS檔，如果需要轉檔可以利用Mkvmerge封裝成mkv，或是其它轉檔，因為我ts夠用故沒有繼續轉檔
