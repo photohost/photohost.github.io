@@ -4,7 +4,7 @@ function createBSZ() {
         postBody.insertAdjacentHTML('afterend','<div id="busuanzi_container_page_pv" style="display:none;float:left;margin-top:8px;font-size:small;">本頁被偷看量<span id="busuanzi_value_page_pv"></span>次</div>');
     }
     var runday = document.getElementById('runday');
-    runday.insertAdjacentHTML('afterend', '<div id="busuanzi_container_site_pv" style="display:none;">總共多少人偷看<span id="busuanzi_value_site_pv"></span>次 • </div>');
+    runday.insertAdjacentHTML('afterend', '<div id="busuanzi_container_site_pv" style="display:none;">總共有<span id="busuanzi_value_site_pv"></span>人偷看過 • </div>');
 }
 
 document.addEventListener("DOMContentLoaded", function() {
