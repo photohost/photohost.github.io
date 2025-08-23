@@ -112,7 +112,7 @@
         return `<span class="post-tag" style="background-color:${bg};color:${fg}">${tag}</span>`;
       }).join("");
 
-      const summary = `本篇内容涵盖主题「${labels.map(x => x.textContent.trim()).join(" / ")}」，带你深入探索相关知识点。`;
+      const summary = `這是一則關於「${labels.map(x => x.textContent.trim()).join(" / ")}」的筆記，建議別看了。`;
 
       const newCard = document.createElement("a");
       newCard.href = link;
