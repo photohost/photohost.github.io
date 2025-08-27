@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let style = document.createElement("style");
         style.innerHTML = `
         html {    
-            background: url('https://wowpb.pages.dev/file/2a84a86f2bb288032e3a1.jpg') no-repeat center center fixed;
+            background: url('https://s2.loli.net/2025/08/28/M1IZeFsiKbTWcaq.png') no-repeat center center fixed;
             background-size: cover;
         }
 
