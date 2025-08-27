@@ -34,7 +34,7 @@ document.addEventListener("DOMContentLoaded", function() {
         position:fixed;
         top:130px;
         left:50%;
-        transform: translateX(50%) translateX(320px);
+        transform: translateX(50%) translateX(360px);
         width:200px;
         border: 1px solid #e1e4e8;
         border-radius: 6px;
