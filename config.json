@@ -20,6 +20,6 @@
     "themeMode":"fix",
     "dayTheme":"light",
     "nightTheme":"github-light",
-    "script":"<script src='https://cdn.jsdelivr.net/gh/photohost/photohost.github.io/assets/GmeekTOC.js'></script>",
+    "script":"<script src='https://cdn.jsdelivr.net/gh/photohost/photohost.github.io/assets/theme2TOC.js'></script>",
     "allHead":"<script src='https://cdn.jsdelivr.net/gh/photohost/photohost.github.io/assets/theme2.js'></script>"
 }
