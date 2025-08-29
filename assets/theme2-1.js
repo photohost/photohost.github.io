@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let style = document.createElement("style");
         style.innerHTML = `
         html {    
-            background: url('https://s2.loli.net/2025/08/28/M1IZeFsiKbTWcaq.png') no-repeat center center fixed;
+            background: url('https://i.meee.com.tw/wUHf93S.jpg') no-repeat center center fixed;
             background-size: cover;
         }
 
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
         style.innerHTML = `
 
         html {    
-            background: url('https://s2.loli.net/2025/08/28/M1IZeFsiKbTWcaq.png') no-repeat center center fixed;
+            background: url('https://i.meee.com.tw/wUHf93S.jpg') no-repeat center center fixed;
             background-size: cover;
         }
 
