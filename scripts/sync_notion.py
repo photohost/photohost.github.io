@@ -1,15 +1,10 @@
-from notion_client import Client
-import os
+"""CLI entry point for the Notion publisher. Preview/publish must be explicit."""
+import sys
+from notion_sync import main, SyncError
 
-notion = Client(auth=os.environ["NOTION_TOKEN"])
-
-database_id = os.environ["NOTION_DATABASE_ID"]
-
-response = notion.databases.query(
-    database_id=database_id
-)
-
-for page in response["results"]:
-    title = page["properties"]["Title"]["title"][0]["plain_text"]
-
-    print(title)
+if __name__ == "__main__":
+    try:
+        main()
+    except SyncError as exc:
+        print("Sync stopped: " + str(exc), file=sys.stderr)
+        sys.exit(1)

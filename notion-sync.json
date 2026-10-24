@@ -1,0 +1,11 @@
+{
+  "data_source_id": "35d40a03-f4e8-8094-bba3-000bd5f3aac3",
+  "notion_version": "2025-09-03",
+  "properties": {
+    "title": "Title", "status": "Status", "tags": "Tags", "date": "日期",
+    "slug": "Slug", "issue": "Issue 編號", "url": "網站連結",
+    "result": "同步結果", "synced": "最後同步", "published": "Published"
+  },
+  "ready_status": "Ready",
+  "published_status": "Published"
+}

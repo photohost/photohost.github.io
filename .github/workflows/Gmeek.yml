@@ -2,84 +2,146 @@ name: build Gmeek
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "build=只重建網站；notion-preview=預覽；notion-publish=正式同步並發布"
+        type: choice
+        default: build
+        options: [build, notion-preview, notion-publish]
   issues:
     types: [opened, edited]
   schedule:
     - cron: "0 16 * * *"
-    
+    # Opt in by setting the repository variable NOTION_SYNC_ENABLED to true.
+    - cron: "17 * * * *"
+
+permissions:
+  contents: write
+  issues: write
+  pages: write
+  id-token: write
+
+# Serialize all writers and deployments; never cancel after creating Issues.
+concurrency:
+  group: gmeek-publish
+  cancel-in-progress: false
+
 jobs:
   build:
-    name: Generate blog
+    name: Sync and generate blog
     runs-on: ubuntu-latest
-    if: ${{ github.event.repository.owner.id == github.event.sender.id || github.event_name == 'schedule' }}
-    permissions: write-all
+    if: >-
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'issues' && github.event.repository.owner.id == github.event.sender.id) ||
+       (github.event_name == 'schedule' &&
+        (github.event.schedule == '0 16 * * *' || vars.NOTION_SYNC_ENABLED == 'true')))
+    outputs:
+      deploy: ${{ steps.mode.outputs.build == 'true' || (steps.sync.outputs.has_articles == 'true' && steps.mode.outputs.mode == 'notion-publish') }}
+      notion_publish: ${{ steps.mode.outputs.mode == 'notion-publish' }}
+      sync_failed: ${{ steps.sync.outcome == 'failure' }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Pages
-        id: pages
-        uses: actions/configure-pages@v4
-
-      - name: Get config.json
-        run: |
-          echo "====== check config.josn file ======"
-          cat config.json
-          echo "====== check config.josn end  ======"
-          sudo apt-get install jq
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
         with:
-          python-version: 3.8
-
-      - name: Clone source code
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Choose mode
+        id: mode
+        env:
+          INPUT_MODE: ${{ inputs.mode }}
+          EVENT: ${{ github.event_name }}
+          EVENT_SCHEDULE: ${{ github.event.schedule }}
         run: |
-          GMEEK_VERSION=$(jq -r ".GMEEK_VERSION" config.json)
-          git clone https://github.com/Meekdai/Gmeek.git /opt/Gmeek;
-          cd /opt/Gmeek/
-          lastTag=$(git describe --tags `git rev-list --tags --max-count=1`)
-          if [ $GMEEK_VERSION == 'last' ]; then git checkout $lastTag; else git checkout $GMEEK_VERSION; fi;
-
-      - name: Install dependencies
+          mode="${INPUT_MODE:-build}"
+          if [ "$EVENT" = "schedule" ] && [ "$EVENT_SCHEDULE" = "17 * * * *" ]; then
+            mode="notion-publish"
+          fi
+          case "$mode" in
+            build|notion-preview|notion-publish) ;;
+            *) exit 1 ;;
+          esac
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          if [ "$mode" = "build" ]; then echo "build=true" >> "$GITHUB_OUTPUT"; fi
+      - name: Preview or sync Ready articles
+        id: sync
+        if: steps.mode.outputs.mode != 'build'
+        continue-on-error: true
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SYNC_MODE: ${{ steps.mode.outputs.mode }}
+        run: python scripts/sync_notion.py "${SYNC_MODE#notion-}"
+      - name: Save preview for review
+        if: steps.mode.outputs.mode == 'notion-preview' && steps.sync.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: notion-preview
+          path: work/notion-preview/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Preserve mappings and images before building
+        if: steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true'
         run: |
-          pip install --upgrade pip
-          pip install -r /opt/Gmeek/requirements.txt
-
-      - name: Generate new html
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .notion-sync/state.json
+          if [ -d static/notion-assets ]; then git add static/notion-assets; fi
+          if ! git diff --cached --quiet; then
+            git commit -m "Save Notion article mappings and images"
+            git push
+          fi
+      - name: Save deployment receipt
+        if: always() && steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: notion-batch
+          path: work/notion-batch.json
+          retention-days: 7
+      - name: Set up Pages
+        if: steps.mode.outputs.build == 'true' || (steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true')
+        uses: actions/configure-pages@v4
+      - name: Get Gmeek source and dependencies
+        if: steps.mode.outputs.build == 'true' || (steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true')
         run: |
-          cp -r ./* /opt/Gmeek/
-          cd /opt/Gmeek/
-          python Gmeek.py ${{ secrets.GITHUB_TOKEN }} ${{ github.repository }} --issue_number '${{ github.event.issue.number }}'
-          cp -a /opt/Gmeek/docs ${{ github.workspace }} 
-          cp -a /opt/Gmeek/backup ${{ github.workspace }} 
-          cp /opt/Gmeek/blogBase.json ${{ github.workspace }} 
-          
-      - name: update html
+          git clone https://github.com/Meekdai/Gmeek.git "$RUNNER_TEMP/Gmeek"
+          version=$(python -c "import json; print(json.load(open('config.json'))['GMEEK_VERSION'])")
+          if [ "$version" = "last" ]; then
+            version=$(git -C "$RUNNER_TEMP/Gmeek" describe --tags "$(git -C "$RUNNER_TEMP/Gmeek" rev-list --tags --max-count=1)")
+          fi
+          git -C "$RUNNER_TEMP/Gmeek" checkout "$version"
+          python -m pip install -r "$RUNNER_TEMP/Gmeek/requirements.txt"
+      - name: Generate HTML
+        if: steps.mode.outputs.build == 'true' || (steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: python scripts/build_gmeek.py "$RUNNER_TEMP/Gmeek/Gmeek.py"
+      - name: Commit generated site
+        if: steps.mode.outputs.build == 'true' || (steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true')
         run: |
-          git config --local user.email "$(jq -r ".email" config.json)"
-          git config --local user.name "${{ github.repository_owner }}"
-          git add .
-          git commit -a -m '🎉auto update by Gmeek action' || echo "nothing to commit"
-          git push || echo "nothing to push"
-          sleep 3
-          
-      - name: Upload artifact
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs backup blogBase.json README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Update site from Gmeek"
+            git push
+          fi
+      - name: Upload site
+        if: steps.mode.outputs.build == 'true' || (steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true')
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'docs/.'
-          
+          path: docs/
+      - name: Report preflight failure
+        if: steps.sync.outcome == 'failure' && steps.sync.outputs.has_articles != 'true'
+        run: exit 1
+
   deploy:
     name: Deploy blog
-    runs-on: ubuntu-latest
     needs: build
-    permissions:
-      contents: write
-      pages: write
-      id-token: write
-    concurrency:
-      group: "pages"
-      cancel-in-progress: false
+    if: needs.build.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -87,3 +149,32 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  report:
+    name: Report deployment to Notion
+    needs: [build, deploy]
+    if: always() && needs.build.outputs.notion_publish == 'true' && needs.build.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: notion-batch
+          path: work/
+      - name: Record actual deployment result
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+        run: |
+          result=failure
+          if [ "$DEPLOY_RESULT" = "success" ]; then result=success; fi
+          python scripts/sync_notion.py "finalize-$result"
+      - name: Report partial sync failure
+        if: needs.build.outputs.sync_failed == 'true'
+        run: exit 1
