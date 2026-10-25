@@ -6,6 +6,8 @@ workers.*.json
 workers.json
 .dev-shell/
 .bootstrap-*
+.wrangler/
+.dev.vars*
 .agents/
 .claude/
 .examples/

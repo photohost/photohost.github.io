@@ -1,0 +1,14 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "gmeek-notion-publisher",
+	"account_id": "4cc1cf2098efeb2dab41fc688800ebdf",
+	"main": "dist/cloudflare.js",
+	"no_bundle": true,
+	"find_additional_modules": true,
+	"build": { "command": "npm run build" },
+	"rules": [{ "type": "ESModule", "globs": ["publisher.js"], "fallthrough": false }],
+	"compatibility_date": "2026-10-25",
+	"workers_dev": true,
+	"preview_urls": false,
+	"observability": { "enabled": true }
+}

@@ -1,5 +1,5 @@
 // Local setup only. Private keys and .env stay ignored by Git.
-import { generateKeyPairSync, privateDecrypt, constants } from "node:crypto"
+import { generateKeyPairSync, privateDecrypt, constants, randomBytes } from "node:crypto"
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 
 function setEnv(name, value) {
@@ -16,6 +16,7 @@ if (command === "init") {
 		publicKeyEncoding: { type: "spki", format: "pem" }, privateKeyEncoding: { type: "pkcs8", format: "pem" } })
 	writeFileSync(".bootstrap-private.pem", keys.privateKey, { mode: 0o600 })
 	setEnv("WEBHOOK_BOOTSTRAP_PUBLIC_KEY", Buffer.from(keys.publicKey).toString("base64"))
+	setEnv("WEBHOOK_PATH_TOKEN", randomBytes(32).toString("hex"))
 	console.log("Bootstrap key created. Only the public key will be sent to Notion.")
 } else if (command === "capture") {
 	const logs = readFileSync(process.argv[3], "utf8")
