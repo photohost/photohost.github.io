@@ -1,6 +1,6 @@
 # Notion 部落格發布通知
 
-用 Notion Workers 接收 Gmeek Publisher 連線的 Webhook，驗證簽章後觸發此儲存庫的 Gmeek workflow。實際讀取與發布由 GitHub Actions 既有的 NOTION_TOKEN 完成。
+用 Cloudflare Workers 接收 Gmeek Sync 連線的 Webhook，驗證簽章後觸發此儲存庫的 Gmeek workflow。實際讀取與發布由 GitHub Actions 既有的 NOTION_TOKEN 完成。
 
 ## 寫作操作
 
@@ -24,23 +24,28 @@ delete 會刪除 Issue 及其討論，無法在 GitHub 還原。Git 先前的提
 
 可用同一個限此儲存庫的 token，賦予 Actions 與 Issues 讀寫權限，分別存入上述兩個位置。不要放在聊天、原始碼、Issue 或公開日誌。
 
-## 接收服務部署
+## Cloudflare 接收服務
 
-需要 Node.js 22+ 和官方 Notion CLI `ntn` 0.23.1+；此專案使用 SDK 0.9.5。
+使用 Cloudflare Workers Free 即可，不需要升級 Notion。每次執行只驗證通知並呼叫 GitHub；未設定排程、資料庫或付費服務。
 
-1. 在此目錄執行 `npm ci`、`npm run check`、`npm test`。
-2. 執行 `ntn login --no-browser`，由工作區擁有者在 Notion 核准登入。
-3. 首次部署：`ntn workers deploy --name "Gmeek Publisher Webhook"`。後續執行 `ntn workers deploy`。
-4. 執行 `node setup.mjs init`，將初始化公鑰寫入本機 `.env`，執行 `ntn workers env push`。
-5. 將 `GITHUB_ACTIONS_TOKEN` 加入 Worker 的環境變數。`workers.json`、`.env`、初始化私鑰均已加入 Git 忽略規則。
-6. 用 `ntn workers webhooks list` 取得 `publishBlog` 接收網址；網址包含秘密，勿公開。啟用此 webhook 的同步 verification。
-7. 在 Notion 的 Gmeek Publisher 連線新增 Webhook 訂閱，填入接收網址，選擇 `page.created`、`page.properties_updated`、`page.content_updated`。
-8. 將初始化那次 Worker 的日誌存到本機暫存檔，再執行 `node setup.mjs capture <日誌檔>`。程式只記錄 RSA 加密的驗證碼，解密後寫入 `.env`。
-9. 執行 `ntn workers env push`，把 NOTION_WEBHOOK_SECRET 存入 Worker。本人可在私有終端執行 `node setup.mjs show-code`，把驗證碼填回 Notion 訂閱介面完成驗證。
-10. 將一篇要更新的文章改成 repost，確認 GitHub 出現「Notion 自動發布」，且網站部署成功後 Notion 回到 Published。
+1. 安裝 Node.js 22+，在此目錄執行 `npm ci`、`npm run check`、`npm test`。
+2. 執行 `npx wrangler login --device --browser=false --scopes account:read user:read workers_scripts:write workers_tail:read`，開啟顯示的網址並核准配對碼。
+3. `wrangler.jsonc` 已指定接收服務名稱和帳號。首次執行 `node setup.mjs init`，在本機建立初始化金鑰及隨機接收路徑；私鑰和 `.env` 均不提交。
+4. 執行 `npx wrangler deploy`，再執行 `npx wrangler secret bulk .env`，存入 `WEBHOOK_PATH_TOKEN` 和 `WEBHOOK_BOOTSTRAP_PUBLIC_KEY`。
+5. 在 Cloudflare Worker → Settings → Variables and Secrets，新增 Secret `GITHUB_ACTIONS_TOKEN`；值是前述 GitHub Actions 讀寫權杖。
+6. 訂閱網址為部署後的 `https://<worker>.<subdomain>.workers.dev/notion/<WEBHOOK_PATH_TOKEN>`。把完整網址填入 Notion 開發者後台 → Gmeek Sync → Webhooks；此連線須具有 blog 資料庫的存取權。請勿公開接收路徑。
+7. 訂閱 `page.created`、`page.properties_updated`、`page.content_updated`。
+8. 使用 Worker 私有日誌取得 `BOOTSTRAP_ENCRYPTED=...`，將該日誌存為本機暫存檔，再執行 `node setup.mjs capture <日誌檔>`。程式會用本機私鑰解密，把驗證碼寫入 `.env`，不印出明碼。
+9. 再執行 `npx wrangler secret bulk .env`，設定 `NOTION_WEBHOOK_SECRET`。本人可在私有終端執行 `node setup.mjs show-code`，把驗證碼貼回 Notion 訂閱介面，完成驗證。
+10. 將要更新的文章改成 repost，確認 GitHub 出現「Notion 自動發布」，網站成功後 Notion 回到 Published。
 
-Webhook 已驗證後，初始化請求會被拒絕。可以移除 Worker 的 WEBHOOK_BOOTSTRAP_PUBLIC_KEY。接收端只接受固定工作區、固定 blog 資料庫的人員操作；同步程式本身的 bot 回寫不會觸發循環。來源通知不保證瞬間送達，GitHub 排程保留作為備援。
+根目錄 `/health` 只回報服務存在；不能用它判斷 Notion 訂閱或 GitHub 權杖是否已設定完成。
 
-手動診斷：Actions → build Gmeek → Run workflow → mode 選 notion-preview（僅預覽）或 notion-publish（執行命令）。
+接收端只接受此工作區、此 blog 資料庫的人員操作；程式的 bot 回寫不會形成循環。GitHub 接受觸發後才回覆 HTTP 200；失敗回覆 503，讓 Notion 重試。Webhook 不保證瞬間送達，原 GitHub 排程保留作為備援。
 
-參考：[Notion Webhooks](https://developers.notion.com/reference/webhooks)、[Workers Webhooks](https://developers.notion.com/workers/guides/webhooks)、[GitHub 刪除 Issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/administering-issues/deleting-an-issue)。
+手動診斷：Actions → build Gmeek → Run workflow → notion-preview（僅預覽）或 notion-publish（執行命令）。
+
+`src/index.ts` 保留原 Notion Workers 介面，只有 Notion Business／Enterprise 工作區才能使用；預設部署入口為 `src/cloudflare.ts` 編譯後的 `dist/cloudflare.js`。
+
+參考：[Notion Webhooks](https://developers.notion.com/reference/webhooks)、[Cloudflare Workers 方案](https://developers.cloudflare.com/workers/platform/pricing/)、[GitHub 刪除 Issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/administering-issues/deleting-an-issue)。
+

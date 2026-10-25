@@ -94,7 +94,7 @@ export async function handleDelivery(request: Request, env: Env,
 				Accept: "application/vnd.github+json", "Content-Type": "application/json",
 				"X-GitHub-Api-Version": "2022-11-28", "User-Agent": "notion-gmeek-webhook" },
 			body: JSON.stringify({ ref: TARGET.ref, inputs: { mode: "notion-publish", source: "notion-webhook" } }),
-			signal: AbortSignal.timeout(20000),
+			signal: AbortSignal.timeout(8000),
 		})
 	} catch {
 		throw new Error("GitHub dispatch network failure; Notion will retry")
