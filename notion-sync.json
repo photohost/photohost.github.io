@@ -6,6 +6,5 @@
     "slug": "Slug", "issue": "Issue 編號", "url": "網站連結",
     "result": "同步結果", "synced": "最後同步", "published": "Published"
   },
-  "ready_status": "Ready",
-  "published_status": "Published"
+  "publish_status": "Published"
 }
