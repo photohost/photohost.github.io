@@ -2,7 +2,7 @@
 
 適用儲存庫：`photohost/photohost.github.io`。
 
-Notion 寫作 → Status 設為 Ready → 同步 GitHub Issue → 建置與部署網站 → 回寫 Published 與網站連結。
+Notion 寫作 → 手動將 Status 設為 Published → 系統自動同步 GitHub Issue → 建置與部署網站 → 回寫同步結果與網站連結。
 
 ## 一次性設定
 
@@ -14,28 +14,34 @@ Notion 寫作 → Status 設為 Ready → 同步 GitHub Issue → 建置與部�
 
 資料來源 ID 已填入 `notion-sync.json`：`35d40a03-f4e8-8094-bba3-000bd5f3aac3`。這是 data source ID，並非資料庫網址的 ID 或 `v=` 的檢視 ID。
 
-## 第一次測試與發布
+## 日常寫作與自動發布
 
 1. 在 Notion 新增一篇實際願意公開的文章，填寫 `Title`、至少一個 `Tags`，並在頁面內撰寫本文。
 2. `日期` 是文章顯示日期，不是排程開關。可留空，留空時沿用 GitHub Issue 建立時間。
 3. `Slug` 可填如 `my-first-post`；不含路徑或 `.html`。留空會產生穩定的 `notion-...` 代稱。
-4. 設定 `Status = Ready`。
-5. 前往 [Actions → build Gmeek](https://github.com/photohost/photohost.github.io/actions/workflows/Gmeek.yml)，按 Run workflow，選 `main` 與 `notion-preview`。
-6. 查看執行結果，下載 `notion-preview` artifact 裡的 Markdown 與 `plan.json`。預覽會讀取資料及下載圖片，但不修改 GitHub Issues 或 Notion；有未支援格式時會停止。Artifact 包含待發布文章，保留 7 天，存取權由 GitHub 決定。
-7. 確認後再次執行，選 `notion-publish`。此步會將 Ready 文章與圖片寫入公開儲存庫／Issue，並更新網站。
-8. 等待 Deploy blog 和 Report deployment to Notion 成功。此時 Notion 才會出現 `Published`、網站連結和最後同步時間。
+4. 寫作時保持 `Status = Draft`。完成並決定公開後，手動改為 `Published`。
+5. 系統每 5 分鐘檢查一次（每小時第 2、7、12…57 分鐘），自動將新增或修改過的 Published 文章和圖片同步至公開 GitHub 儲存庫與網站。GitHub 排程可能延遲，另需網站建置時間，不保證 5 分鐘內上線。
+6. 在 Notion 查看「同步結果」。出現「已成功發布至網站」，並填入「網站連結」與「最後同步」，代表這次部署已完成。
 
-Notion 的 `Published` 核取方塊由程式在成功後填寫；日常操作只需要修改 `Status`。重新編輯已發布文章後，再改成 `Ready` 即會更新同一個 Issue。`Draft` 和 `Published` 不會被主動匯出。刪除、封存或改回 Draft 都不會下架網站文章。
+`Status = Published` 是你的公開發布指令，不是部署已完成的證明；成功與否看「同步結果」及「最後同步」。另一個 `Published` 核取方塊由程式在成功後勾選，不需要手動修改。
 
-## 選擇是否啟用每小時檢查
+保持 Published 時，後續的標題、本文、圖片、標籤修改也會自動更新同一篇文章；沒有變更就不重複寫入 Issue 或部署。需要慢慢修改時，先改回 Draft，完成後再設為 Published。`Draft` 與舊的 `Ready` 狀態都不會自動發布。刪除、封存或改回 Draft 都不會下架已上線的文章；已開始部署的版本也不會因此自動撤回。
 
-首次手動發布確認後，可在 [Actions variables](https://github.com/photohost/photohost.github.io/settings/variables/actions) 新增 Repository variable：
+## 暫停自動發布與手動預覽
+
+自動發布預設啟用，不需要再按 GitHub 的 Run workflow。要暫停整個資料庫的自動發布，可在 [Actions variables](https://github.com/photohost/photohost.github.io/settings/variables/actions) 新增 Repository variable：
 
 | 名稱 | 值 |
 | --- | --- |
-| NOTION_SYNC_ENABLED | true |
+| NOTION_SYNC_ENABLED | false |
 
-啟用後每小時第 17 分鐘檢查 Ready 文章；GitHub 排程可能延遲。未設定或設為 `false` 時，新增的每小時排程不會執行發布。原有台灣時間每日 00:00 的網站重建保留，該重建不讀取 Notion。
+設回 `true` 或移除該變數後恢復。此開關只控制排程發布，手動執行不受影響。原有台灣時間每日 00:00 的網站重建保留，該重建不讀取 Notion。
+
+需要先檢查文章時，先暫停自動發布，再將測試文章設為 Published。前往 [Actions → build Gmeek](https://github.com/photohost/photohost.github.io/actions/workflows/Gmeek.yml)，按 Run workflow，選 `main` 與 `notion-preview`。下載 `notion-preview` artifact 裡的 Markdown 與 `plan.json`，其中 `needs_sync` 表示是否需要更新網站。預覽只讀取資料及下載圖片，不修改 GitHub Issues 或 Notion。Artifact 包含選取的文章，保留 7 天，存取權由 GitHub 決定。
+
+手動選 `notion-publish` 可立即啟動同步，不必等待下一次排程。成功部署會保存內容版本記錄；若第一次啟用時已有舊版同步的文章，缺少部署記錄的文章會再部署一次，沿用原 Issue 與網址。
+
+GitHub 排程可能延遲或漏跑，下一次會重新檢查。公開儲存庫長時間無活動也可能停用排程；若一直沒有同步，先到 Actions 檢查工作流程是否啟用。詳見 [GitHub 排程說明](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)。
 
 ## 圖片與格式
 
@@ -54,17 +60,17 @@ Notion 的 `Published` 核取方塊由程式在成功後填寫；日常操作只
 
 ## 失敗與重跑
 
-- 發布前會先檢查所有 Ready 文章；格式、欄位、重複網址或標籤有誤時，尚未發出文章更新。
-- Issue 更新成功但部署失敗時，文章仍是 Ready，可重跑。Issue 內的隱藏 Notion page 標記可避免重跑建立重複文章。
-- `.notion-sync/state.json` 保存固定網址和 Issue 對應，必須與程式一起保留；請勿手動刪除 Issue 內的 `notion-page` 標記。
+- 發布前會先檢查所有 Published 文章；格式、重複網址或標籤有誤時，尚未發出文章更新，並盡可能在「同步結果」寫入檢查錯誤。修正內容後保持 Published，下一次會再試。若 token 或資料庫授權有誤，需到 Actions 查看錯誤。
+- Issue 更新成功但部署失敗時，文章維持 Published，系統會重試。只有部署成功並完成回寫後才記錄已部署版本，避免失敗後被誤當成已上線。Issue 內的隱藏 Notion page 標記可避免重跑建立重複文章。
+- `.notion-sync/state.json` 保存固定網址、Issue 對應和已部署版本，必須與程式一起保留；請勿手動刪除 Issue 內的 `notion-page` 標記。
 - 中途被取消或網路斷線可能只完成部分步驟；不要手動重建 Issue，先重新執行。若 git push 被拒絕，檢查主分支保護規則或併發修改。
-- 若建置期間又修改 Notion 文章，程式會保留你的新狀態；將需要發布的內容設為 Ready 後重跑。
+- 若建置期間又修改 Notion 文章，程式會保留你的新狀態；仍保持 Published 的新內容會在後續排程補上。
 - 同步寫入的圖片與已公開 Issue 內容不會因為後續失敗而自動撤回。
 
 ## 驗證
 
-本地測試：`python -m unittest discover -s tests -v`，不需要 token，模擬資料驗證草稿排除、預覽唯讀、重跑去重、舊網址、失敗狀態和修改衝突。PR 也會執行相同測試。
+本地測試：`python -m unittest discover -s tests -v`，不需要 token，模擬資料驗證草稿排除、預覽唯讀、重跑去重、已部署文章無變更時跳過、內容更新、失敗重試、舊網址和修改衝突。PR 也會執行相同測試。
 
-已對照 Gmeek v2.25 的命名介面與 static 複製方式。`GMEEK_VERSION` 仍沿用原設定；如果上游改動命名介面，adapter 會停止並要求更新，不會猜測新介面。實際 Notion REST 授權與 GitHub Pages 部署仍需完成上述預覽和首次發布測試。
+已對照 Gmeek v2.25 的命名介面與 static 複製方式。`GMEEK_VERSION` 仍沿用原設定；如果上游改動命名介面，adapter 會停止並要求更新，不會猜測新介面。Notion REST 授權與 Hello World 文章預覽已驗證；正式上線結果以每次部署與回寫為準。
 
 參考：[Notion data source API](https://developers.notion.com/reference/query-a-data-source)、[Notion file API](https://developers.notion.com/reference/file-object)、[GitHub workflow 觸發限制](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)、[Gmeek](https://github.com/Meekdai/Gmeek)。

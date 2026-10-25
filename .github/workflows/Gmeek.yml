@@ -12,8 +12,8 @@ on:
     types: [opened, edited]
   schedule:
     - cron: "0 16 * * *"
-    # Opt in by setting the repository variable NOTION_SYNC_ENABLED to true.
-    - cron: "17 * * * *"
+    # Enabled by default; set NOTION_SYNC_ENABLED=false to pause automatic publishing.
+    - cron: "2-59/5 * * * *"
 
 permissions:
   contents: write
@@ -35,7 +35,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'issues' && github.event.repository.owner.id == github.event.sender.id) ||
        (github.event_name == 'schedule' &&
-        (github.event.schedule == '0 16 * * *' || vars.NOTION_SYNC_ENABLED == 'true')))
+        (github.event.schedule == '0 16 * * *' || vars.NOTION_SYNC_ENABLED != 'false')))
     outputs:
       deploy: ${{ steps.mode.outputs.build == 'true' || (steps.sync.outputs.has_articles == 'true' && steps.mode.outputs.mode == 'notion-publish') }}
       notion_publish: ${{ steps.mode.outputs.mode == 'notion-publish' }}
@@ -55,7 +55,7 @@ jobs:
           EVENT_SCHEDULE: ${{ github.event.schedule }}
         run: |
           mode="${INPUT_MODE:-build}"
-          if [ "$EVENT" = "schedule" ] && [ "$EVENT_SCHEDULE" = "17 * * * *" ]; then
+          if [ "$EVENT" = "schedule" ] && [ "$EVENT_SCHEDULE" != "0 16 * * *" ]; then
             mode="notion-publish"
           fi
           case "$mode" in
@@ -64,7 +64,7 @@ jobs:
           esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           if [ "$mode" = "build" ]; then echo "build=true" >> "$GITHUB_OUTPUT"; fi
-      - name: Preview or sync Ready articles
+      - name: Preview or sync Published articles
         id: sync
         if: steps.mode.outputs.mode != 'build'
         continue-on-error: true
@@ -175,6 +175,18 @@ jobs:
           result=failure
           if [ "$DEPLOY_RESULT" = "success" ]; then result=success; fi
           python scripts/sync_notion.py "finalize-$result"
+      - name: Preserve successful deployment receipts
+        if: always()
+        run: |
+          if [ -f .notion-sync/state.json ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .notion-sync/state.json
+            if ! git diff --cached --quiet; then
+              git commit -m "Record deployed Notion article versions"
+              git push
+            fi
+          fi
       - name: Report partial sync failure
         if: needs.build.outputs.sync_failed == 'true'
         run: exit 1

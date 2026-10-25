@@ -1,7 +1,8 @@
 """Notion -> GitHub Issues. Python 3.12+, standard library only.
 
 Preview is read-only remotely. Publish is explicitly selected by the workflow.
-Only Ready pages are read; Published is written only after Pages deployment.
+Only pages explicitly set to Published are exported. Deployment receipts make
+unchanged articles a no-op, including the synchronizer's own Notion writebacks.
 """
 from __future__ import annotations
 
@@ -337,7 +338,7 @@ class Sync:
         self.blog = blog if blog is not None else read_json("blogBase.json", {})
         self.batch = []
 
-    def ready_pages(self):
+    def publish_pages(self):
         schema = self.notion.call("GET", "/data_sources/" + self.config["data_source_id"])
         types = {"title": "title", "status": "status", "tags": "multi_select", "date": "date",
                  "slug": "rich_text", "issue": "number", "url": "url", "result": "rich_text",
@@ -348,7 +349,7 @@ class Sync:
         pages, cursor = [], None
         while True:
             body = {"page_size": 100, "filter": {"property": self.p["status"],
-                      "status": {"equals": self.config["ready_status"]}}}
+                      "status": {"equals": self.config["publish_status"]}}}
             if cursor:
                 body["start_cursor"] = cursor
             response = self.notion.call("POST", "/data_sources/" + self.config["data_source_id"] + "/query", body)
@@ -378,7 +379,7 @@ class Sync:
             pid = uuid_text(page["id"])
             title = property_text(page, self.p["title"]).strip()
             if not title or len(title) > 200 or "\n" in title or "\r" in title:
-                raise SyncError(f"Ready page {pid} requires a title of 1–200 characters on one line")
+                raise SyncError(f"Published page {pid} requires a title of 1–200 characters on one line")
             number = page["properties"][self.p["issue"]].get("number")
             entry = self.state["pages"].get(pid, {})
             old_number = entry.get("issue")
@@ -419,7 +420,7 @@ class Sync:
                 if other["state"] == "open" and other["number"] != number and other_title == file_title:
                     raise SyncError(f"{title}: another open Issue has the same backup filename")
             if any(x["file_title"] == file_title for x in prepared):
-                raise SyncError("Two Ready articles have the same backup filename")
+                raise SyncError("Two Published articles have the same backup filename")
             renderer = Renderer(self.notion, assets)
             markdown = renderer.render(renderer.children(pid))
             if not markdown.strip():
@@ -439,20 +440,31 @@ class Sync:
             if len(body.encode("utf-8")) > 60000:
                 raise SyncError(f"{title}: article is too long for one GitHub Issue")
             latest = self.notion.call("GET", "/pages/" + pid)
-            if latest["last_edited_time"] != page["last_edited_time"]:
+            if (latest["last_edited_time"] != page["last_edited_time"] or
+                    status_name(latest, self.config) != self.config["publish_status"]):
                 raise SyncError(f"{title}: content changed during export; rerun")
+            fingerprint = article_digest(title, body, tags)
+            issue_matches = issue and article_digest(issue["title"], issue.get("body"), issue["labels"]) == fingerprint
             prepared.append({"page_id": pid, "title": title, "file_title": file_title,
                              "body": body, "tags": tags, "slug": slug, "issue": number,
-                             "old_issue": issue, "revision": latest["last_edited_time"]})
+                             "old_issue": issue, "revision": latest["last_edited_time"],
+                             "fingerprint": fingerprint,
+                             "needs_sync": not issue_matches or entry.get("deployed_fingerprint") != fingerprint})
         return prepared
 
     def publish(self, prepared):
+        prepared = [item for item in prepared if item["needs_sync"]]
+        if not prepared:
+            print("All Published articles are already deployed; no changes")
+            return
         labels = {x["name"] for x in self.github.pages(f"/repos/{self.repo}/labels")}
         for item in prepared:
             pid = item["page_id"]
             latest = self.notion.call("GET", "/pages/" + pid)
-            if latest["last_edited_time"] != item["revision"] or status_name(latest, self.config) != self.config["ready_status"]:
-                raise SyncError("A Ready article changed before publishing; rerun")
+            if (latest.get("archived") or latest.get("in_trash") or
+                    latest["last_edited_time"] != item["revision"] or
+                    status_name(latest, self.config) != self.config["publish_status"]):
+                raise SyncError("A Published article changed before publishing; rerun")
             for label in item["tags"]:
                 if label not in labels:
                     self.github.call("POST", f"/repos/{self.repo}/labels", {"name": label, "color": "cfd3d7"})
@@ -462,14 +474,16 @@ class Sync:
                 current = self.github.call("GET", f"/repos/{self.repo}/issues/{item['issue']}")
                 if current["updated_at"] != item["old_issue"]["updated_at"]:
                     raise SyncError("GitHub Issue changed during sync; rerun before overwriting")
-                self.github.call("PATCH", f"/repos/{self.repo}/issues/{item['issue']}", payload)
+                if article_digest(current["title"], current.get("body"), current["labels"]) != item["fingerprint"]:
+                    self.github.call("PATCH", f"/repos/{self.repo}/issues/{item['issue']}", payload)
             else:
                 created = self.github.call("POST", f"/repos/{self.repo}/issues", payload)
                 item["issue"] = created["number"]
-            self.state["pages"][pid] = {"issue": item["issue"], "slug": item["slug"]}
+            self.state["pages"][pid] = {**self.state["pages"].get(pid, {}),
+                                        "issue": item["issue"], "slug": item["slug"]}
             write_json(STATE, self.state)
             self.batch.append({"page_id": pid, "issue": item["issue"], "slug": item["slug"],
-                               "fingerprint": article_digest(item["title"], item["body"], item["tags"]),
+                               "fingerprint": item["fingerprint"],
                                "revision": item["revision"]})
             write_json(BATCH, self.batch)
             updated = self.notion.call("PATCH", "/pages/" + pid, {"properties": {
@@ -486,9 +500,9 @@ class Sync:
             if page.get("archived") or page.get("in_trash") or page["last_edited_time"] != item["revision"]:
                 print("Notion page changed during deployment; left its status unchanged")
                 continue
-            if status_name(page, self.config) != self.config["ready_status"]:
+            if status_name(page, self.config) != self.config["publish_status"]:
                 continue
-            props = {self.p["result"]: text_property("網站部署失敗；修正後保持 Ready 並重新執行")}
+            props = {self.p["result"]: text_property("網站部署失敗；保持 Published，系統將自動重試")}
             if succeeded:
                 issue = self.github.call("GET", f"/repos/{self.repo}/issues/{item['issue']}")
                 digest = article_digest(issue["title"], issue.get("body"), issue["labels"])
@@ -496,11 +510,26 @@ class Sync:
                     print("Issue changed during deployment; left Notion status unchanged")
                     continue
                 props = {self.p["result"]: text_property("已成功發布至網站"),
-                         self.p["status"]: {"status": {"name": self.config["published_status"]}},
                          self.p["published"]: {"checkbox": True},
                          self.p["synced"]: {"date": {"start": dt.datetime.now(dt.timezone.utc).isoformat()}},
                          self.p["url"]: {"url": self.site["homeUrl"].rstrip("/") + "/post/" + urllib.parse.quote(item["slug"], safe="") + ".html"}}
             self.notion.call("PATCH", "/pages/" + item["page_id"], {"properties": props})
+            if succeeded:
+                entry = self.state["pages"].get(item["page_id"])
+                if entry and entry["issue"] == item["issue"] and entry["slug"] == item["slug"]:
+                    entry["deployed_fingerprint"] = item["fingerprint"]
+                    write_json(STATE, self.state)
+
+    def report_error(self, pages, message):
+        result = "發布前檢查失敗：" + message[:1800]
+        for page in pages:
+            latest = self.notion.call("GET", "/pages/" + uuid_text(page["id"]))
+            if (not latest.get("archived") and not latest.get("in_trash") and
+                    latest["last_edited_time"] == page["last_edited_time"] and
+                    status_name(latest, self.config) == self.config["publish_status"] and
+                    property_text(latest, self.p["result"]) != result):
+                self.notion.call("PATCH", "/pages/" + uuid_text(page["id"]),
+                                 {"properties": {self.p["result"]: text_property(result)}})
 
 
 def output(name, value):
@@ -529,17 +558,22 @@ def main():
         sync.finalize(args.command == "finalize-success")
         return
     write_json(BATCH, [])
-    pages = sync.ready_pages()
-    print(f"Found {len(pages)} Ready article(s)")
+    pages = sync.publish_pages()
+    print(f"Found {len(pages)} Published article(s)")
     if not pages:
         output("has_articles", "false")
         return
-    prepared = sync.prepare(pages, preview=args.command == "preview")
+    try:
+        prepared = sync.prepare(pages, preview=args.command == "preview")
+    except SyncError as exc:
+        if args.command == "publish":
+            sync.report_error(pages, str(exc))
+        raise
     if args.command == "preview":
         PREVIEW.mkdir(parents=True, exist_ok=True)
         for item in prepared:
             (PREVIEW / (item["page_id"] + ".md")).write_text(item["body"], encoding="utf-8")
-        write_json(PREVIEW / "plan.json", [{k: x[k] for k in ("page_id", "title", "issue", "slug", "tags")} for x in prepared])
+        write_json(PREVIEW / "plan.json", [{k: x[k] for k in ("page_id", "title", "issue", "slug", "tags", "needs_sync")} for x in prepared])
         print("Preview generated. GitHub Issues and Notion were not modified.")
         return
     try:

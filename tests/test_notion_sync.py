@@ -23,7 +23,7 @@ def text(value):
     return [{"type": "text", "plain_text": value, "text": {"content": value}, "annotations": {}}]
 
 
-def article(status="Ready"):
+def article(status="Published"):
     return {"id": PID, "last_edited_time": "revision-0", "properties": {
         "Title": {"type": "title", "title": text("Sample")},
         "Status": {"type": "status", "status": {"name": status}},
@@ -52,7 +52,8 @@ class Notion:
         if path.startswith("/data_sources/") and method == "GET":
             return {"properties": self.page["properties"]}
         if path.endswith("/query"):
-            rows = [self.page] if ns.status_name(self.page, CONFIG) == "Ready" else []
+            wanted = data["filter"]["status"]["equals"]
+            rows = [self.page] if ns.status_name(self.page, CONFIG) == wanted else []
             return {"results": copy.deepcopy(rows), "has_more": False}
         if "/children?" in path:
             return {"results": copy.deepcopy(self.blocks), "has_more": False}
@@ -107,11 +108,14 @@ class SyncTests(unittest.TestCase):
                        state if state is not None else {"pages": {}}, blog if blog is not None else {})
 
     def prepare(self, sync):
-        return sync.prepare(sync.ready_pages(), preview=True)
+        return sync.prepare(sync.publish_pages(), preview=True)
 
-    def test_drafts_are_excluded(self):
-        self.notion.page = article("Draft")
-        self.assertEqual(self.sync().ready_pages(), [])
+    def test_only_published_is_selected(self):
+        for status in ("Draft", "Ready"):
+            self.notion.page = article(status)
+            self.assertEqual(self.sync().publish_pages(), [])
+        self.notion.page = article("Published")
+        self.assertEqual(len(self.sync().publish_pages()), 1)
         self.assertEqual(self.notion.mutations + self.github.mutations, [])
 
     def test_preview_is_remote_read_only_and_escapes_literal_markup(self):
@@ -124,11 +128,11 @@ class SyncTests(unittest.TestCase):
     def test_create_deploy_then_update_same_issue(self):
         sync = self.sync()
         sync.publish(self.prepare(sync))
-        self.assertEqual(ns.status_name(self.notion.page, CONFIG), "Ready")
+        self.assertEqual(ns.status_name(self.notion.page, CONFIG), "Published")
+        self.assertFalse(self.notion.page["properties"]["Published"]["checkbox"])
         sync.finalize(True)
         self.assertEqual(ns.status_name(self.notion.page, CONFIG), "Published")
         self.assertTrue(self.notion.page["properties"]["Published"]["checkbox"])
-        self.notion.page["properties"]["Status"]["status"]["name"] = "Ready"
         self.notion.page["properties"]["Title"]["title"] = text("Renamed")
         second = self.sync(state=sync.state)
         second.publish(self.prepare(second))
@@ -188,11 +192,12 @@ class SyncTests(unittest.TestCase):
             sync.publish(plan)
         self.assertEqual(self.github.mutations, [])
 
-    def test_deployment_failure_keeps_ready(self):
+    def test_deployment_failure_keeps_published_for_retry(self):
         sync = self.sync()
         sync.publish(self.prepare(sync))
         sync.finalize(False)
-        self.assertEqual(ns.status_name(self.notion.page, CONFIG), "Ready")
+        self.assertEqual(ns.status_name(self.notion.page, CONFIG), "Published")
+        self.assertNotIn("deployed_fingerprint", sync.state["pages"][PID])
         self.assertFalse(self.notion.page["properties"]["Published"]["checkbox"])
         self.assertIsNone(self.notion.page["properties"]["網站連結"]["url"])
 
@@ -211,14 +216,16 @@ class SyncTests(unittest.TestCase):
         sync.publish(self.prepare(sync))
         self.github.issues[1]["body"] = "Edited on GitHub"
         sync.finalize(True)
-        self.assertEqual(ns.status_name(self.notion.page, CONFIG), "Ready")
+        self.assertFalse(self.notion.page["properties"]["Published"]["checkbox"])
+        self.assertNotIn("deployed_fingerprint", sync.state["pages"][PID])
 
     def test_title_change_during_build_does_not_mark_published(self):
         sync = self.sync()
         sync.publish(self.prepare(sync))
         self.github.issues[1]["title"] = "Changed externally"
         sync.finalize(True)
-        self.assertEqual(ns.status_name(self.notion.page, CONFIG), "Ready")
+        self.assertFalse(self.notion.page["properties"]["Published"]["checkbox"])
+        self.assertNotIn("deployed_fingerprint", sync.state["pages"][PID])
 
     def test_github_newline_normalization_is_accepted(self):
         sync = self.sync()
@@ -237,6 +244,79 @@ class SyncTests(unittest.TestCase):
         self.notion.page["properties"]["Tags"]["multi_select"] = []
         with self.assertRaises(ns.SyncError):
             self.prepare(self.sync())
+
+    def test_repeated_poll_after_deployment_is_noop_including_writeback(self):
+        sync = self.sync()
+        sync.publish(self.prepare(sync))
+        sync.finalize(True)
+        saved = ns.read_json(ns.STATE)
+        self.assertIn("deployed_fingerprint", saved["pages"][PID])
+        counts = (len(self.notion.mutations), len(self.github.mutations))
+        second = self.sync(state=saved)
+        plan = self.prepare(second)
+        self.assertFalse(plan[0]["needs_sync"])
+        second.publish(plan)
+        self.assertEqual(second.batch, [])
+        self.assertEqual((len(self.notion.mutations), len(self.github.mutations)), counts)
+
+    def test_updated_content_retries_failed_deployment_without_patching_issue_again(self):
+        sync = self.sync()
+        sync.publish(self.prepare(sync))
+        sync.finalize(True)
+        previous_digest = sync.state["pages"][PID]["deployed_fingerprint"]
+        self.notion.blocks[0]["paragraph"]["rich_text"] = text("Updated body")
+        second = self.sync(state=ns.read_json(ns.STATE))
+        second.publish(self.prepare(second))
+        second.finalize(False)
+        self.assertEqual(second.state["pages"][PID]["deployed_fingerprint"], previous_digest)
+        mutations = len(self.github.mutations)
+        retry = self.sync(state=ns.read_json(ns.STATE))
+        self.assertTrue(self.prepare(retry)[0]["needs_sync"])
+        retry.publish(self.prepare(retry))
+        self.assertEqual(len(self.github.mutations), mutations)
+        self.assertEqual(len(retry.batch), 1)
+        retry.finalize(True)
+        self.assertFalse(self.prepare(self.sync(state=ns.read_json(ns.STATE)))[0]["needs_sync"])
+        self.assertEqual(len(self.github.issues), 1)
+
+    def test_legacy_mapping_without_receipt_deploys_once(self):
+        sync = self.sync()
+        sync.publish(self.prepare(sync))
+        legacy_state = copy.deepcopy(sync.state)
+        retry = self.sync(state=legacy_state)
+        self.assertTrue(self.prepare(retry)[0]["needs_sync"])
+        retry.publish(self.prepare(retry))
+        retry.finalize(True)
+        self.assertFalse(self.prepare(retry)[0]["needs_sync"])
+        self.assertEqual(len(self.github.issues), 1)
+
+    def test_switch_to_draft_before_publish_stops_writes(self):
+        sync = self.sync()
+        plan = self.prepare(sync)
+        self.notion.page["properties"]["Status"]["status"]["name"] = "Draft"
+        with self.assertRaises(ns.SyncError):
+            sync.publish(plan)
+        self.assertEqual(self.github.mutations + self.notion.mutations, [])
+
+    def test_report_error_is_visible_and_does_not_repeat_or_overwrite_edits(self):
+        sync = self.sync()
+        sync.report_error(sync.publish_pages(), "Unsupported Notion block")
+        self.assertIn("Unsupported", ns.property_text(self.notion.page, "同步結果"))
+        self.assertEqual(ns.status_name(self.notion.page, CONFIG), "Published")
+        count = len(self.notion.mutations)
+        sync.report_error(sync.publish_pages(), "Unsupported Notion block")
+        self.assertEqual(len(self.notion.mutations), count)
+        pages = sync.publish_pages()
+        self.notion.page["last_edited_time"] = "user-edited"
+        sync.report_error(pages, "A new error")
+        self.assertEqual(len(self.notion.mutations), count)
+
+    def test_external_issue_edit_does_not_get_mistaken_for_deployed_content(self):
+        sync = self.sync()
+        sync.publish(self.prepare(sync))
+        sync.finalize(True)
+        self.github.issues[1]["body"] = "Changed externally"
+        self.assertTrue(self.prepare(sync)[0]["needs_sync"])
 
 
 class RenderingAndBuildTests(unittest.TestCase):
