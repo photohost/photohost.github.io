@@ -1,0 +1,15 @@
+.env
+.env.*
+dist/
+node_modules/
+workers.*.json
+workers.json
+.dev-shell/
+.bootstrap-*
+.agents/
+.claude/
+.examples/
+AGENTS.md
+CLAUDE.md
+.claudeignore
+.codexignore

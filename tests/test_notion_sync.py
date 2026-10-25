@@ -38,7 +38,7 @@ def article(status="Published"):
 
 
 def issue(number=42, body="Original", title="Sample"):
-    return {"number": number, "title": title, "body": body, "state": "open",
+    return {"number": number, "node_id": f"I_{number}", "title": title, "body": body, "state": "open",
             "updated_at": "issue-revision-0", "labels": [{"name": "Diary"}]}
 
 
@@ -52,8 +52,8 @@ class Notion:
         if path.startswith("/data_sources/") and method == "GET":
             return {"properties": self.page["properties"]}
         if path.endswith("/query"):
-            wanted = data["filter"]["status"]["equals"]
-            rows = [self.page] if ns.status_name(self.page, CONFIG) == wanted else []
+            wanted = [x["status"]["equals"] for x in data["filter"]["or"]]
+            rows = [self.page] if ns.status_name(self.page, CONFIG) in wanted else []
             return {"results": copy.deepcopy(rows), "has_more": False}
         if "/children?" in path:
             return {"results": copy.deepcopy(self.blocks), "has_more": False}
@@ -77,8 +77,15 @@ class GitHub:
 
     def call(self, method, path, data=None):
         if method == "GET":
-            return copy.deepcopy(self.issues[int(path.rsplit("/", 1)[-1])])
+            if path == "/user": return {"login": "owner"}
+            if path == "/repos/owner/repo": return {"full_name": "owner/repo", "permissions": {"admin": True}}
+            number = int(path.rsplit("/", 1)[-1])
+            if number not in self.issues: raise ns.APIError(method, path, 410)
+            return copy.deepcopy(self.issues[number])
         self.mutations.append((method, path, copy.deepcopy(data)))
+        if path == "/graphql":
+            del self.issues[int(data["variables"]["id"].split("_")[1])]
+            return {"data": {"deleteIssue": {"repository": {"nameWithOwner": "owner/repo"}}}}
         if method == "POST" and path.endswith("/issues"):
             number = max(list(self.issues) + [0]) + 1
             self.issues[number] = issue(number, data["body"], data["title"])
@@ -105,7 +112,7 @@ class SyncTests(unittest.TestCase):
 
     def sync(self, state=None, blog=None):
         return ns.Sync(self.notion, self.github, "owner/repo", CONFIG, SITE,
-                       state if state is not None else {"pages": {}}, blog if blog is not None else {})
+                       state if state is not None else {"pages": {}}, blog if blog is not None else {}, delete_github=self.github)
 
     def prepare(self, sync):
         return sync.prepare(sync.publish_pages(), preview=True)
@@ -134,6 +141,7 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(ns.status_name(self.notion.page, CONFIG), "Published")
         self.assertTrue(self.notion.page["properties"]["Published"]["checkbox"])
         self.notion.page["properties"]["Title"]["title"] = text("Renamed")
+        self.notion.page["properties"]["Status"]["status"]["name"] = "repost"
         second = self.sync(state=sync.state)
         second.publish(self.prepare(second))
         self.assertEqual(len(self.github.issues), 1)
@@ -265,6 +273,7 @@ class SyncTests(unittest.TestCase):
         sync.finalize(True)
         previous_digest = sync.state["pages"][PID]["deployed_fingerprint"]
         self.notion.blocks[0]["paragraph"]["rich_text"] = text("Updated body")
+        self.notion.page["properties"]["Status"]["status"]["name"] = "repost"
         second = self.sync(state=ns.read_json(ns.STATE))
         second.publish(self.prepare(second))
         second.finalize(False)
@@ -311,12 +320,108 @@ class SyncTests(unittest.TestCase):
         sync.report_error(pages, "A new error")
         self.assertEqual(len(self.notion.mutations), count)
 
-    def test_external_issue_edit_does_not_get_mistaken_for_deployed_content(self):
+    def test_external_issue_edit_also_requires_explicit_repost(self):
         sync = self.sync()
         sync.publish(self.prepare(sync))
         sync.finalize(True)
         self.github.issues[1]["body"] = "Changed externally"
+        self.assertFalse(self.prepare(sync)[0]["needs_sync"])
+        self.notion.page["properties"]["Status"]["status"]["name"] = "repost"
         self.assertTrue(self.prepare(sync)[0]["needs_sync"])
+
+    def deployed(self):
+        sync = self.sync()
+        sync.publish(self.prepare(sync))
+        sync.finalize(True)
+        return sync
+
+    def set_status(self, value):
+        self.notion.page["properties"]["Status"]["status"]["name"] = value
+
+    def test_edit_published_does_not_export_blocks_or_upload_attachments(self):
+        sync = self.deployed()
+        self.notion.blocks = [{"type": "unsupported_private_draft"}]
+        count = len(self.github.mutations)
+        sync.publish(self.prepare(sync))
+        self.assertEqual(len(self.github.mutations), count)
+
+    def test_repost_without_content_changes_acknowledges_and_returns_published(self):
+        sync = self.deployed()
+        self.set_status("repost")
+        second = self.sync(state=sync.state)
+        count = len(self.github.mutations)
+        second.publish(self.prepare(second))
+        self.assertEqual(len(second.batch), 1)
+        self.assertEqual(len(self.github.mutations), count)
+        second.finalize(True)
+        self.assertEqual(ns.status_name(self.notion.page, CONFIG), "Published")
+
+    def test_delete_removes_issue_then_reports_only_after_successful_deployment(self):
+        sync = self.deployed()
+        self.set_status("delete")
+        self.notion.blocks = [{"type": "unsupported_private_draft"}]
+        second = self.sync(state=sync.state)
+        second.publish(self.prepare(second))
+        self.assertEqual(self.github.issues, {})
+        self.assertTrue(self.notion.page["properties"]["Published"]["checkbox"])
+        second.finalize(True)
+        self.assertFalse(self.notion.page["properties"]["Published"]["checkbox"])
+        self.assertIsNone(self.notion.page["properties"]["網站連結"]["url"])
+        self.assertIsNone(self.notion.page["properties"]["Issue 編號"]["number"])
+        self.assertEqual(ns.status_name(self.notion.page, CONFIG), "delete")
+        self.assertTrue(second.state["pages"][PID]["deletion_deployed"])
+        third = self.sync(state=ns.read_json(ns.STATE))
+        third.publish(self.prepare(third))
+        self.assertEqual(third.batch, [])
+        self.set_status("Published")
+        third.publish(self.prepare(third))
+        self.assertEqual(self.github.issues, {})
+
+    def test_failed_delete_deployment_retries_without_redeleting_issue(self):
+        sync = self.deployed()
+        self.set_status("delete")
+        second = self.sync(state=sync.state)
+        second.publish(self.prepare(second))
+        second.finalize(False)
+        self.assertIn("保持 delete", ns.property_text(self.notion.page, "同步結果"))
+        count = len(self.github.mutations)
+        third = self.sync(state=ns.read_json(ns.STATE))
+        third.publish(self.prepare(third))
+        self.assertEqual(len(self.github.mutations), count)
+        third.finalize(True)
+        self.assertTrue(third.state["pages"][PID]["deletion_deployed"])
+
+    def test_delete_response_lost_recovers_using_existing_mapping(self):
+        sync = self.deployed()
+        self.set_status("delete")
+        self.github.issues.clear()
+        second = self.sync(state=sync.state)
+        second.publish(self.prepare(second))
+        self.assertEqual(second.batch[0]["action"], "delete")
+
+    def test_delete_requires_token_and_exact_notion_marker(self):
+        sync = self.deployed()
+        self.set_status("delete")
+        second = self.sync(state=sync.state)
+        second.delete_github = None
+        with self.assertRaisesRegex(ns.SyncError, "NOTION_DELETE_TOKEN"):
+            second.publish(self.prepare(second))
+        self.assertEqual(len(self.github.issues), 1)
+        self.github.issues[1]["body"] = "Another article"
+        with self.assertRaisesRegex(ns.SyncError, "唯一對應標記"):
+            self.prepare(second)
+
+    def test_delete_wrong_number_or_changed_status_never_deletes(self):
+        sync = self.deployed()
+        self.set_status("delete")
+        second = self.sync(state=sync.state)
+        self.notion.page["properties"]["Issue 編號"]["number"] = 99
+        with self.assertRaises(ns.SyncError): self.prepare(second)
+        self.notion.page["properties"]["Issue 編號"]["number"] = 1
+        plan = self.prepare(second)
+        self.set_status("Draft")
+        with self.assertRaises(ns.SyncError): second.publish(plan)
+        self.assertEqual(len(self.github.issues), 1)
 
 
 class RenderingAndBuildTests(unittest.TestCase):

@@ -1,8 +1,8 @@
 """Notion -> GitHub Issues. Python 3.12+, standard library only.
 
 Preview is read-only remotely. Publish is explicitly selected by the workflow.
-Only pages explicitly set to Published are exported. Deployment receipts make
-unchanged articles a no-op, including the synchronizer's own Notion writebacks.
+Published publishes once; repost explicitly exports edits; delete removes the
+linked Issue and deployed page. Deployment receipts prevent repeated actions.
 """
 from __future__ import annotations
 
@@ -31,6 +31,12 @@ MARKER = re.compile(r"<!-- notion-page:([0-9a-f-]{36}) -->")
 
 class SyncError(Exception):
     pass
+
+
+class APIError(SyncError):
+    def __init__(self, method, path, status):
+        self.status = status
+        super().__init__(f"API {method} {path.split('?')[0]} returned HTTP {status}")
 
 
 def read_json(path, fallback=None):
@@ -75,7 +81,7 @@ class API:
                     time.sleep(min(float(retry), 60) if retry.isdigit() else 2 ** (attempt + 1))
                     continue
                 # Do not echo API bodies or signed image URLs into public logs.
-                raise SyncError(f"API {method} {path.split('?')[0]} returned HTTP {exc.code}") from None
+                raise APIError(method, path, exc.code) from None
             except (urllib.error.URLError, TimeoutError, OSError):
                 if safe and attempt < 3:
                     time.sleep(2 ** (attempt + 1))
@@ -330,13 +336,26 @@ def article_digest(title, body, labels):
 
 
 class Sync:
-    def __init__(self, notion, github, repo, config, site, state=None, blog=None):
+    def __init__(self, notion, github, repo, config, site, state=None, blog=None, delete_github=None):
         self.notion, self.github, self.repo = notion, github, repo
         self.config, self.site = config, site
         self.p = config["properties"]
         self.state = state if state is not None else read_json(STATE, {"version": 1, "pages": {}})
         self.blog = blog if blog is not None else read_json("blogBase.json", {})
         self.batch = []
+        self.delete_github = delete_github
+        self.repost_status = config.get("repost_status", "repost")
+        self.delete_status = config.get("delete_status", "delete")
+
+    def requested(self, page):
+        entry = self.state["pages"].get(uuid_text(page["id"]), {})
+        status = status_name(page, self.config)
+        if status == self.delete_status:
+            return not entry.get("deletion_deployed")
+        if status == self.repost_status:
+            return True
+        return (status == self.config["publish_status"] and
+                not entry.get("deployed_fingerprint") and not entry.get("deleted"))
 
     def publish_pages(self):
         schema = self.notion.call("GET", "/data_sources/" + self.config["data_source_id"])
@@ -348,8 +367,9 @@ class Sync:
                 raise SyncError(f"Notion property {self.p[key]} must be {expected}")
         pages, cursor = [], None
         while True:
-            body = {"page_size": 100, "filter": {"property": self.p["status"],
-                      "status": {"equals": self.config["publish_status"]}}}
+            body = {"page_size": 100, "filter": {"or": [
+                {"property": self.p["status"], "status": {"equals": value}}
+                for value in (self.config["publish_status"], self.repost_status, self.delete_status)]}}
             if cursor:
                 body["start_cursor"] = cursor
             response = self.notion.call("POST", "/data_sources/" + self.config["data_source_id"] + "/query", body)
@@ -377,6 +397,19 @@ class Sync:
         assets = Assets(self.site["homeUrl"], preview)
         for page in pages:
             pid = uuid_text(page["id"])
+            entry = self.state["pages"].get(pid, {})
+            status = status_name(page, self.config)
+            if not self.requested(page):
+                # Do not even read blocks or copy draft attachments after publication.
+                prepared.append({"page_id": pid, "action": "noop", "needs_sync": False,
+                                 "title": "", "body": "", "tags": [], "file_title": pid,
+                                 "issue": entry.get("issue", 0), "slug": entry.get("slug", "")})
+                continue
+            if status == self.delete_status:
+                prepared.append(self.prepare_delete(page, entry, by_number, by_marker))
+                continue
+            if entry.get("deleted"):
+                raise SyncError("此文章的 Issue 已刪除；請複製成新的 Notion 文章後再發布")
             title = property_text(page, self.p["title"]).strip()
             if not title or len(title) > 200 or "\n" in title or "\r" in title:
                 raise SyncError(f"Published page {pid} requires a title of 1–200 characters on one line")
@@ -441,30 +474,100 @@ class Sync:
                 raise SyncError(f"{title}: article is too long for one GitHub Issue")
             latest = self.notion.call("GET", "/pages/" + pid)
             if (latest["last_edited_time"] != page["last_edited_time"] or
-                    status_name(latest, self.config) != self.config["publish_status"]):
+                    status_name(latest, self.config) != status):
                 raise SyncError(f"{title}: content changed during export; rerun")
             fingerprint = article_digest(title, body, tags)
             issue_matches = issue and article_digest(issue["title"], issue.get("body"), issue["labels"]) == fingerprint
-            prepared.append({"page_id": pid, "title": title, "file_title": file_title,
+            prepared.append({"page_id": pid, "action": "publish", "status": status,
+                             "title": title, "file_title": file_title,
                              "body": body, "tags": tags, "slug": slug, "issue": number,
                              "old_issue": issue, "revision": latest["last_edited_time"],
                              "fingerprint": fingerprint,
-                             "needs_sync": not issue_matches or entry.get("deployed_fingerprint") != fingerprint})
+                             "needs_sync": status == self.repost_status or not issue_matches or entry.get("deployed_fingerprint") != fingerprint})
         return prepared
+
+    def prepare_delete(self, page, entry, by_number, by_marker):
+        pid = uuid_text(page["id"])
+        number = page["properties"][self.p["issue"]].get("number")
+        if number is not None and (number != int(number) or number < 1):
+            raise SyncError("Issue number must be a positive integer")
+        if number and entry.get("issue") and number != entry["issue"]:
+            raise SyncError("An existing page cannot be reassigned to a different Issue")
+        number = int(number or entry.get("issue") or by_marker.get(pid, {}).get("number", 0))
+        issue = by_number.get(number)
+        if issue and ("pull_request" in issue or MARKER.findall(issue.get("body") or "") != [pid]):
+            raise SyncError("拒絕刪除：Issue 不含此 Notion 文章的唯一對應標記")
+        if not issue and (not number or entry.get("issue") != number):
+            raise SyncError("此頁沒有可確認的已發布 Issue，無法刪除")
+        if by_marker.get(pid, {}).get("number", number) != number:
+            raise SyncError("Conflicting page-to-Issue mapping")
+        slug = entry.get("slug") or (source_config(issue.get("body")).get("notion_slug") if issue else None)
+        post = self.blog.get("postListJson", {}).get("P" + str(number))
+        if post:
+            existing = existing_slug(post)
+            if slug and slug != existing:
+                raise SyncError("拒絕刪除：已部署網址與文章對應不一致")
+            slug = existing
+        if not slug:
+            raise SyncError("拒絕刪除：找不到可確認的文章網址")
+        return {"page_id": pid, "action": "delete", "status": self.delete_status,
+                "issue": number, "slug": valid_slug(slug), "old_issue": issue,
+                "revision": page["last_edited_time"], "needs_sync": True,
+                "title": "", "file_title": pid, "body": "", "tags": [],
+                "fingerprint": ""}
+
+    def delete_issue(self, item):
+        if not self.delete_github:
+            raise SyncError("請先設定 NOTION_DELETE_TOKEN：由 photohost 建立、限此儲存庫且 Issues 讀寫權限的 GitHub 權杖")
+        # A personal repository only permits its owner to permanently delete Issues.
+        owner = self.repo.split("/")[0]
+        actor = self.delete_github.call("GET", "/user")
+        if actor.get("login", "").casefold() != owner.casefold():
+            raise SyncError("NOTION_DELETE_TOKEN 必須由此儲存庫擁有者建立")
+        repository = self.delete_github.call("GET", f"/repos/{self.repo}")
+        if repository.get("full_name", "").casefold() != self.repo.casefold() or not repository.get("permissions", {}).get("admin"):
+            raise SyncError("NOTION_DELETE_TOKEN 無法確認此儲存庫的擁有者權限")
+        try:
+            current = self.delete_github.call("GET", f"/repos/{self.repo}/issues/{item['issue']}")
+        except APIError as exc:
+            entry = self.state["pages"].get(item["page_id"], {})
+            if exc.status in (404, 410) and entry.get("issue") == item["issue"]:
+                return  # Recover after a successful deletion with a lost response.
+            raise
+        if ("pull_request" in current or MARKER.findall(current.get("body") or "") != [item["page_id"]]
+                or not current.get("node_id")):
+            raise SyncError("拒絕刪除：Issue 不含此 Notion 文章的唯一對應標記")
+        if item["old_issue"] and current["updated_at"] != item["old_issue"]["updated_at"]:
+            raise SyncError("GitHub Issue changed before deletion; retry after reviewing it")
+        response = self.delete_github.call("POST", "/graphql", {
+            "query": "mutation($id:ID!){deleteIssue(input:{issueId:$id}){repository{nameWithOwner}}}",
+            "variables": {"id": current["node_id"]}})
+        deleted_repo = ((response.get("data") or {}).get("deleteIssue") or {}).get("repository") or {}
+        if response.get("errors") or deleted_repo.get("nameWithOwner", "").casefold() != self.repo.casefold():
+            raise SyncError("GitHub 拒絕刪除 Issue；請確認 NOTION_DELETE_TOKEN 的擁有者與 Issues 讀寫權限")
 
     def publish(self, prepared):
         prepared = [item for item in prepared if item["needs_sync"]]
         if not prepared:
             print("All Published articles are already deployed; no changes")
             return
-        labels = {x["name"] for x in self.github.pages(f"/repos/{self.repo}/labels")}
+        labels = ({x["name"] for x in self.github.pages(f"/repos/{self.repo}/labels")}
+                  if any(x["action"] == "publish" for x in prepared) else set())
         for item in prepared:
             pid = item["page_id"]
             latest = self.notion.call("GET", "/pages/" + pid)
             if (latest.get("archived") or latest.get("in_trash") or
                     latest["last_edited_time"] != item["revision"] or
-                    status_name(latest, self.config) != self.config["publish_status"]):
-                raise SyncError("A Published article changed before publishing; rerun")
+                    status_name(latest, self.config) != item["status"]):
+                raise SyncError("An article changed before processing; rerun")
+            if item["action"] == "delete":
+                self.delete_issue(item)
+                self.state["pages"][pid] = {**self.state["pages"].get(pid, {}),
+                    "issue": item["issue"], "slug": item["slug"], "deleted": True,
+                    "deletion_deployed": False}
+                write_json(STATE, self.state)
+                self.save_batch(item, "GitHub Issue 已刪除，等待網站下架部署")
+                continue
             for label in item["tags"]:
                 if label not in labels:
                     self.github.call("POST", f"/repos/{self.repo}/labels", {"name": label, "color": "cfd3d7"})
@@ -482,51 +585,75 @@ class Sync:
             self.state["pages"][pid] = {**self.state["pages"].get(pid, {}),
                                         "issue": item["issue"], "slug": item["slug"]}
             write_json(STATE, self.state)
-            self.batch.append({"page_id": pid, "issue": item["issue"], "slug": item["slug"],
-                               "fingerprint": item["fingerprint"],
-                               "revision": item["revision"]})
-            write_json(BATCH, self.batch)
-            updated = self.notion.call("PATCH", "/pages/" + pid, {"properties": {
-                self.p["issue"]: {"number": item["issue"]}, self.p["slug"]: text_property(item["slug"]),
-                self.p["result"]: text_property("已同步至 GitHub，等待網站部署")}})
-            self.batch[-1]["revision"] = updated["last_edited_time"]
-            write_json(BATCH, self.batch)
+            self.save_batch(item, "已同步至 GitHub，等待網站部署")
             print(f"Synced Issue #{item['issue']}; awaiting deployment")
+
+    def save_batch(self, item, message):
+        self.batch.append({"page_id": item["page_id"], "issue": item["issue"], "slug": item["slug"],
+                           "action": item["action"], "status": item["status"],
+                           "fingerprint": item["fingerprint"],
+                           "revision": item["revision"]})
+        write_json(BATCH, self.batch)
+        updated = self.notion.call("PATCH", "/pages/" + item["page_id"], {"properties": {
+            self.p["issue"]: {"number": item["issue"]}, self.p["slug"]: text_property(item["slug"]),
+            self.p["result"]: text_property(message)}})
+        self.batch[-1]["revision"] = updated["last_edited_time"]
+        write_json(BATCH, self.batch)
 
     def finalize(self, succeeded):
         for item in read_json(BATCH, []):
+            deleting = item.get("action") == "delete"
+            status = item.get("status", self.config["publish_status"])
+            if succeeded:
+                if not deleting:
+                    issue = self.github.call("GET", f"/repos/{self.repo}/issues/{item['issue']}")
+                    digest = article_digest(issue["title"], issue.get("body"), issue["labels"])
+                    if digest != item["fingerprint"]:
+                        print("Issue changed during deployment; left Notion status unchanged")
+                        continue
             page = self.notion.call("GET", "/pages/" + item["page_id"])
             # Preserve edits made by the writer while Pages was building.
             if page.get("archived") or page.get("in_trash") or page["last_edited_time"] != item["revision"]:
+                if succeeded:
+                    self.record_deployment(item)
                 print("Notion page changed during deployment; left its status unchanged")
                 continue
-            if status_name(page, self.config) != self.config["publish_status"]:
+            if status_name(page, self.config) != status:
+                if succeeded:
+                    self.record_deployment(item)
                 continue
-            props = {self.p["result"]: text_property("網站部署失敗；保持 Published，系統將自動重試")}
+            props = {self.p["result"]: text_property(f"網站部署失敗；保持 {status}，系統將自動重試")}
             if succeeded:
-                issue = self.github.call("GET", f"/repos/{self.repo}/issues/{item['issue']}")
-                digest = article_digest(issue["title"], issue.get("body"), issue["labels"])
-                if digest != item["fingerprint"]:
-                    print("Issue changed during deployment; left Notion status unchanged")
-                    continue
-                props = {self.p["result"]: text_property("已成功發布至網站"),
-                         self.p["published"]: {"checkbox": True},
+                props = {self.p["result"]: text_property("已從網站下架並刪除 GitHub Issue" if deleting else "已成功發布至網站"),
+                         self.p["published"]: {"checkbox": not deleting},
                          self.p["synced"]: {"date": {"start": dt.datetime.now(dt.timezone.utc).isoformat()}},
-                         self.p["url"]: {"url": self.site["homeUrl"].rstrip("/") + "/post/" + urllib.parse.quote(item["slug"], safe="") + ".html"}}
+                         self.p["url"]: {"url": None if deleting else self.site["homeUrl"].rstrip("/") + "/post/" + urllib.parse.quote(item["slug"], safe="") + ".html"}}
+                if deleting:
+                    props[self.p["issue"]] = {"number": None}
+                else:
+                    props[self.p["status"]] = {"status": {"name": self.config["publish_status"]}}
             self.notion.call("PATCH", "/pages/" + item["page_id"], {"properties": props})
             if succeeded:
-                entry = self.state["pages"].get(item["page_id"])
-                if entry and entry["issue"] == item["issue"] and entry["slug"] == item["slug"]:
-                    entry["deployed_fingerprint"] = item["fingerprint"]
-                    write_json(STATE, self.state)
+                self.record_deployment(item)
+
+    def record_deployment(self, item):
+        entry = self.state["pages"].get(item["page_id"])
+        if entry and entry["issue"] == item["issue"] and entry["slug"] == item["slug"]:
+            if item.get("action") == "delete":
+                entry["deletion_deployed"] = True
+            else:
+                entry["deployed_fingerprint"] = item["fingerprint"]
+            write_json(STATE, self.state)
 
     def report_error(self, pages, message):
         result = "發布前檢查失敗：" + message[:1800]
         for page in pages:
+            if not self.requested(page) or any(x["page_id"] == uuid_text(page["id"]) for x in self.batch):
+                continue
             latest = self.notion.call("GET", "/pages/" + uuid_text(page["id"]))
             if (not latest.get("archived") and not latest.get("in_trash") and
                     latest["last_edited_time"] == page["last_edited_time"] and
-                    status_name(latest, self.config) == self.config["publish_status"] and
+                    status_name(latest, self.config) == status_name(page, self.config) and
                     property_text(latest, self.p["result"]) != result):
                 self.notion.call("PATCH", "/pages/" + uuid_text(page["id"]),
                                  {"properties": {self.p["result"]: text_property(result)}})
@@ -553,13 +680,16 @@ def main():
                  {"Notion-Version": config["notion_version"]}, delay=0.35)
     github = API("https://api.github.com", os.environ["GITHUB_TOKEN"],
                  {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"})
-    sync = Sync(notion, github, repo, config, site)
+    delete_token = os.environ.get("NOTION_DELETE_TOKEN")
+    delete_github = API("https://api.github.com", delete_token,
+        {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}) if delete_token else None
+    sync = Sync(notion, github, repo, config, site, delete_github=delete_github)
     if args.command.startswith("finalize-"):
         sync.finalize(args.command == "finalize-success")
         return
     write_json(BATCH, [])
     pages = sync.publish_pages()
-    print(f"Found {len(pages)} Published article(s)")
+    print(f"Found {len(pages)} article(s) with publication commands")
     if not pages:
         output("has_articles", "false")
         return
@@ -573,11 +703,14 @@ def main():
         PREVIEW.mkdir(parents=True, exist_ok=True)
         for item in prepared:
             (PREVIEW / (item["page_id"] + ".md")).write_text(item["body"], encoding="utf-8")
-        write_json(PREVIEW / "plan.json", [{k: x[k] for k in ("page_id", "title", "issue", "slug", "tags", "needs_sync")} for x in prepared])
+        write_json(PREVIEW / "plan.json", [{k: x[k] for k in ("page_id", "action", "title", "issue", "slug", "tags", "needs_sync")} for x in prepared])
         print("Preview generated. GitHub Issues and Notion were not modified.")
         return
     try:
         sync.publish(prepared)
+    except SyncError as exc:
+        sync.report_error(pages, str(exc))
+        raise
     finally:
         output("has_articles", "true" if sync.batch else "false")
 

@@ -85,6 +85,36 @@ class IncrementalBuildTests(unittest.TestCase):
         with self.assertRaisesRegex(SyncError, "nonempty"):
             self.builder([])
 
+    def test_delete_only_removes_html_backups_and_stale_pagination(self):
+        self.previous["postListJson"]["P205"] = {"postTitle": "To delete", "postUrl": "post/fixed.html"}
+        Path("blogBase.json").write_text(json.dumps(self.previous))
+        Path("docs/post/fixed.html").write_text("private article")
+        Path("docs/page99.html").write_text("stale article listing")
+        Path("backup").mkdir()
+        Path("backup/To delete.md").write_text("body")
+        Path("backup/Legacy.md").write_text("keep")
+        builder = self.builder([{"action": "delete", "issue": 205, "slug": "fixed"}])
+        builder.runAll()
+        self.assertEqual(set(builder.blogBase["postListJson"]), {"P1"})
+        self.assertFalse(Path("docs/post/fixed.html").exists())
+        self.assertFalse(Path("docs/page99.html").exists())
+        self.assertFalse(Path("backup/To delete.md").exists())
+        self.assertTrue(Path("backup/Legacy.md").exists())
+        self.assertEqual(Path("docs/post/legacy.html").read_text(), "unchanged HTML")
+        self.assertEqual(builder.oldFeedString, "")
+        builder.repo.get_issue.assert_not_called()
+        builder.createPostHtml.assert_not_called()
+        builder.createPlistHtml.assert_called_once()
+        builder.createFeedXml.assert_called_once()
+
+    def test_delete_rejects_url_mismatch_and_path_traversal(self):
+        self.previous["postListJson"]["P205"] = {"postTitle": "Keep", "postUrl": "post/keep.html"}
+        Path("blogBase.json").write_text(json.dumps(self.previous))
+        for slug in ("wrong", "../keep"):
+            builder = self.builder([{"action": "delete", "issue": 205, "slug": slug}])
+            with self.assertRaises(SyncError): builder.runAll()
+            builder.createPlistHtml.assert_not_called()
+
 
 class MarkdownRetryTests(unittest.TestCase):
     def render(self, outcomes):
