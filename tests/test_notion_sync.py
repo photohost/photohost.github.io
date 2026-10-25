@@ -346,6 +346,12 @@ class RenderingAndBuildTests(unittest.TestCase):
         source = '''class GMEEK:
     def createFileName(self, issue, useLabel=False):
         return "single-page" if useLabel else issue.title
+    def runAll(self): pass
+    def markdown2html(self, mdstr): pass
+    def addOnePostJson(self, issue): pass
+    def createPostHtml(self, issue): pass
+    def createPlistHtml(self): pass
+    def createFeedXml(self): pass
 instance = GMEEK()
 '''
         namespace = {"_install_fixed_slugs": lambda cls: install_fixed_slugs(cls, {"pages": {PID: {"issue": 42, "slug": "fixed"}}})}
