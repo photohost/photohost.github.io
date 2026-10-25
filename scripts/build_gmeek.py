@@ -2,6 +2,7 @@
 import ast
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import sys
@@ -68,9 +69,14 @@ def render_markdown(self, markdown):
 def install_incremental_build(cls, batch):
     """Retain published HTML and render only this Notion deployment's Issues."""
     original = cls.runAll
-    issue_numbers = sorted({int(item["issue"]) for item in batch})
-    if not issue_numbers or any(number <= 0 for number in issue_numbers):
+    deleted = [item for item in batch if item.get("action") == "delete"]
+    issue_numbers = sorted({int(item["issue"]) for item in batch if item.get("action") != "delete"})
+    if not batch or any(int(item["issue"]) <= 0 for item in batch):
         raise SyncError("Notion publishing requires a nonempty deployment batch")
+    if any(item.get("action", "publish") not in ("publish", "delete") for item in batch):
+        raise SyncError("Unknown Notion deployment action")
+    if set(issue_numbers) & {int(item["issue"]) for item in deleted}:
+        raise SyncError("Conflicting Notion deployment actions")
 
     def run_batch(self):
         previous = read_json("blogBase.json")
@@ -85,6 +91,28 @@ def install_incremental_build(cls, batch):
         Path(self.post_dir).mkdir(parents=True, exist_ok=True)
         if Path(self.static_dir).exists():
             shutil.copytree(self.static_dir, self.root_dir, dirs_exist_ok=True)
+        for item in deleted:
+            key = "P" + str(int(item["issue"]))
+            slug = valid_slug(item["slug"])
+            for collection in ("postListJson", "singeListJson"):
+                post = self.blogBase[collection].pop(key, None)
+                if post:
+                    from notion_sync import existing_slug
+                    if existing_slug(post) != slug:
+                        raise SyncError("Deleted article URL disagrees with the deployment receipt")
+                    filename = re.sub(r'[<>:/\\|?*"\x00-\x1f]', '-', post["postTitle"]) + ".md"
+                    (Path(self.backup_dir) / filename).unlink(missing_ok=True)
+            (Path(self.post_dir) / (slug + ".html")).unlink(missing_ok=True)
+        if deleted:
+            # Rebuild RSS from the remaining index, never reuse the pre-delete feed.
+            self.oldFeedString = ""
+            for path in Path(self.root_dir).glob("page*.html"):
+                if re.fullmatch(r"page[0-9]+\.html", path.name):
+                    path.unlink()  # A smaller index must not leave stale pagination.
+            deleted_pages = {item.get("page_id") for item in deleted} - {None}
+            for path in Path(self.backup_dir).glob("*.md"):
+                if set(MARKER.findall(path.read_text(encoding="utf-8"))) & deleted_pages:
+                    path.unlink()
         print(f"Incremental Notion build: {len(issue_numbers)} article(s)", flush=True)
         for number in issue_numbers:
             issue = self.repo.get_issue(number)
