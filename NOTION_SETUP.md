@@ -41,6 +41,8 @@ Notion 寫作 → 手動將 Status 設為 Published → 系統自動同步 GitHu
 
 手動選 `notion-publish` 可立即啟動同步，不必等待下一次排程。成功部署會保存內容版本記錄；若第一次啟用時已有舊版同步的文章，缺少部署記錄的文章會再部署一次，沿用原 Issue 與網址。
 
+Notion 發布只重新產生這次有變更或尚未部署成功的文章，保留舊文章 HTML，再更新首頁、文章清單、RSS 和圖片。這能避免每次發布一篇新文章都呼叫 GitHub Markdown API 重建所有舊文。每日或手動 `build` 仍可完整重建；Markdown 請求會限速，遇到限流或暫時錯誤會有限次數重試。
+
 GitHub 排程可能延遲或漏跑，下一次會重新檢查。公開儲存庫長時間無活動也可能停用排程；若一直沒有同步，先到 Actions 檢查工作流程是否啟用。詳見 [GitHub 排程說明](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)。
 
 ## 圖片與格式
