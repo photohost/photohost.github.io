@@ -13,6 +13,8 @@
 
 以「同步結果」確認完成；部署失敗會保留原命令，等待下一次 Webhook、排程或手動同步重試。Published 核取方塊由程式填寫。
 
+Slug 可留空，首次發布會以完整的 Notion 頁面 ID 自動產生唯一網址。已發布文章會沿用原本的 Slug；手動指定時不可與其他文章（包含曾刪除的文章）重複。
+
 「日期」由程式自動填入本次發布的日期與時間（台北時間）。首次 Published 或每次 repost 都會產生新的發布時間，網站部署成功後才寫回 Notion；失敗重試沿用同一次發布時間，刪文保留原日期。此欄位不是預約發布設定，不需手動填寫。「最後同步」另外記錄部署完成或刪文完成的時間。
 
 Notion 的 blog 表格依「日期」降冪排序（新到舊）。網站也使用同一個發布時間排序，因此成功 repost 的文章會回到較新的位置；Gmeek 原有置頂文章仍優先顯示。
@@ -52,5 +54,6 @@ delete 會刪除 Issue 及其討論，無法在 GitHub 還原。Git 先前的提
 `src/index.ts` 保留原 Notion Workers 介面，只有 Notion Business／Enterprise 工作區才能使用；預設部署入口為 `src/cloudflare.ts` 編譯後的 `dist/cloudflare.js`。
 
 參考：[Notion Webhooks](https://developers.notion.com/reference/webhooks)、[Cloudflare Workers 方案](https://developers.cloudflare.com/workers/platform/pricing/)、[GitHub 刪除 Issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/administering-issues/deleting-an-issue)。
+
 
 

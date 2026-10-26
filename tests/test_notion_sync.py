@@ -158,7 +158,53 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(len(self.github.issues), 1)
         self.assertEqual(self.github.issues[1]["title"], "Renamed")
         self.assertEqual(self.notion.page["properties"]["網站連結"]["url"],
-                         "https://example.test/post/notion-111111111111.html")
+                         "https://example.test/post/notion-11111111111141118111111111111111.html")
+
+    def test_new_page_does_not_collide_with_deleted_pages_short_slug(self):
+        state = {"pages": {"11111111-1111-4111-8222-222222222222": {
+            "issue": 204, "slug": "notion-111111111111", "deleted": True, "deletion_deployed": True}}}
+        sync = self.sync(state=state)
+        plan = self.prepare(sync)
+        self.assertEqual(plan[0]["slug"], "notion-" + PID.replace("-", ""))
+        sync.publish(plan)
+        sync.finalize(True)
+        self.assertTrue(self.notion.page["properties"]["Published"]["checkbox"])
+        self.assertEqual(state["pages"]["11111111-1111-4111-8222-222222222222"]["slug"], "notion-111111111111")
+
+    def test_new_pages_with_same_id_prefix_can_publish_in_one_batch(self):
+        first = article()
+        second = article()
+        second["id"] = "11111111-1111-4111-8222-222222222222"
+        second["properties"]["Title"]["title"] = text("Second article")
+        pages = {p["id"]: p for p in (first, second)}
+        original_call = self.notion.call
+
+        def call(method, path, data=None):
+            if path.startswith("/pages/") and method == "GET":
+                return copy.deepcopy(pages[path.rsplit("/", 1)[-1]])
+            return original_call(method, path, data)
+
+        with patch.object(self.notion, "call", side_effect=call):
+            plan = self.sync().prepare([first, second], preview=True)
+        self.assertEqual(len({item["slug"] for item in plan}), 2)
+        self.assertTrue(all(item["needs_sync"] for item in plan))
+
+    def test_short_slug_recovered_from_issue_when_mapping_and_writeback_lost(self):
+        short_slug = "notion-111111111111"
+        body = ns.article_body("Original", PID, {"notion_slug": short_slug})
+        self.github = GitHub([issue(body=body)])
+        sync = self.sync()
+        plan = self.prepare(sync)
+        self.assertEqual(plan[0]["slug"], short_slug)
+        sync.publish(plan)
+        self.assertEqual(len(self.github.issues), 1)
+        self.assertEqual(self.notion.page["properties"]["Issue 編號"]["number"], 42)
+
+    def test_published_short_slug_is_preserved_on_repost(self):
+        self.notion.page["properties"]["Slug"]["rich_text"] = text("notion-111111111111")
+        sync = self.deployed()
+        self.set_status("repost")
+        self.assertEqual(self.prepare(sync)[0]["slug"], "notion-111111111111")
 
     def test_recovery_uses_marker_if_notion_writeback_and_state_were_lost(self):
         self.github = GitHub([issue(body=f"old\r\n<!-- notion-page:{PID} -->")])
@@ -535,4 +581,5 @@ instance = GMEEK()
 
 if __name__ == "__main__":
     unittest.main()
+
 

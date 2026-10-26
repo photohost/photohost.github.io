@@ -447,10 +447,14 @@ class Sync:
             post = self.blog.get("postListJson", {}).get("P" + str(number))
             if not slug and post:
                 slug = existing_slug(post)
+            if not slug and issue:
+                slug = source_config(issue.get("body")).get("notion_slug")
             requested = property_text(page, self.p["slug"]).strip()
             if slug and requested and slug != requested:
                 raise SyncError(f"{title}: keep the existing Slug {slug}; changing URLs requires a migration")
-            slug = valid_slug(slug or requested or "notion-" + pid.replace("-", "")[:12])
+            # Notion page IDs can share their first 12 digits. Use the whole ID
+            # for new URLs, while keeping every previously assigned URL above.
+            slug = valid_slug(slug or requested or "notion-" + pid.replace("-", ""))
             key = slug_key(slug)
             if key in occupied and (not number or occupied[key] != number):
                 raise SyncError(f"{title}: Slug is already used by another article")
@@ -737,4 +741,5 @@ if __name__ == "__main__":
     except SyncError as exc:
         print("Sync stopped: " + str(exc), file=sys.stderr)
         sys.exit(1)
+
 
