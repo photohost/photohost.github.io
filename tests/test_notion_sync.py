@@ -17,6 +17,8 @@ from build_gmeek import adapted_tree, install_fixed_slugs
 CONFIG = json.loads((ROOT / "notion-sync.json").read_text(encoding="utf-8"))
 PID = "11111111-1111-4111-8111-111111111111"
 SITE = {"homeUrl": "https://example.test", "UTC": 8, "singlePage": ["link"]}
+FIRST_PUBLICATION = "2026-10-26T09:12:34+08:00"
+SECOND_PUBLICATION = "2026-10-26T15:23:45+08:00"
 
 
 def text(value):
@@ -105,6 +107,9 @@ class SyncTests(unittest.TestCase):
         os.chdir(self.tmp.name)
         self.notion = Notion()
         self.github = GitHub()
+        clock = patch.object(ns, "publication_time", return_value=ns.dt.datetime.fromisoformat(FIRST_PUBLICATION))
+        self.clock = clock.start()
+        self.addCleanup(clock.stop)
 
     def tearDown(self):
         os.chdir(self.previous)
@@ -130,16 +135,22 @@ class SyncTests(unittest.TestCase):
         self.assertIn(r"\*\*literal\*\*", plan[0]["body"])
         self.assertIn("&lt;script&gt;", plan[0]["body"])
         self.assertEqual(self.notion.mutations + self.github.mutations, [])
-        self.assertEqual(ns.source_config(plan[0]["body"])["timestamp"], 1792857600)
+        meta = ns.source_config(plan[0]["body"])
+        self.assertEqual(meta["timestamp"], int(ns.dt.datetime.fromisoformat(FIRST_PUBLICATION).timestamp()))
+        self.assertEqual(meta["notion_published_at"], FIRST_PUBLICATION)
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], "2026-10-25")
 
     def test_create_deploy_then_update_same_issue(self):
         sync = self.sync()
         sync.publish(self.prepare(sync))
         self.assertEqual(ns.status_name(self.notion.page, CONFIG), "Published")
         self.assertFalse(self.notion.page["properties"]["Published"]["checkbox"])
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], "2026-10-25")
         sync.finalize(True)
         self.assertEqual(ns.status_name(self.notion.page, CONFIG), "Published")
         self.assertTrue(self.notion.page["properties"]["Published"]["checkbox"])
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], FIRST_PUBLICATION)
+        self.assertEqual(sync.state["pages"][PID]["published_at"], FIRST_PUBLICATION)
         self.notion.page["properties"]["Title"]["title"] = text("Renamed")
         self.notion.page["properties"]["Status"]["status"]["name"] = "repost"
         second = self.sync(state=sync.state)
@@ -208,6 +219,7 @@ class SyncTests(unittest.TestCase):
         self.assertNotIn("deployed_fingerprint", sync.state["pages"][PID])
         self.assertFalse(self.notion.page["properties"]["Published"]["checkbox"])
         self.assertIsNone(self.notion.page["properties"]["網站連結"]["url"])
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], "2026-10-25")
 
     def test_edit_during_build_preserves_writer_status(self):
         sync = self.sync()
@@ -218,6 +230,7 @@ class SyncTests(unittest.TestCase):
         sync.finalize(True)
         self.assertEqual(len(self.notion.mutations), count)
         self.assertEqual(ns.status_name(self.notion.page, CONFIG), "Draft")
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], "2026-10-25")
 
     def test_issue_edit_during_build_does_not_mark_published(self):
         sync = self.sync()
@@ -273,10 +286,14 @@ class SyncTests(unittest.TestCase):
         sync.finalize(True)
         previous_digest = sync.state["pages"][PID]["deployed_fingerprint"]
         self.notion.blocks[0]["paragraph"]["rich_text"] = text("Updated body")
+        self.clock.return_value = ns.dt.datetime.fromisoformat(SECOND_PUBLICATION)
         self.notion.page["properties"]["Status"]["status"]["name"] = "repost"
         second = self.sync(state=ns.read_json(ns.STATE))
         second.publish(self.prepare(second))
         second.finalize(False)
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], FIRST_PUBLICATION)
+        self.github.issues[1]["body"] = self.github.issues[1]["body"].replace("\r\n", "\n")
+        self.clock.return_value += ns.dt.timedelta(days=1)
         self.assertEqual(second.state["pages"][PID]["deployed_fingerprint"], previous_digest)
         mutations = len(self.github.mutations)
         retry = self.sync(state=ns.read_json(ns.STATE))
@@ -285,6 +302,7 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(len(self.github.mutations), mutations)
         self.assertEqual(len(retry.batch), 1)
         retry.finalize(True)
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], SECOND_PUBLICATION)
         self.assertFalse(self.prepare(self.sync(state=ns.read_json(ns.STATE)))[0]["needs_sync"])
         self.assertEqual(len(self.github.issues), 1)
 
@@ -347,14 +365,55 @@ class SyncTests(unittest.TestCase):
 
     def test_repost_without_content_changes_acknowledges_and_returns_published(self):
         sync = self.deployed()
+        self.clock.return_value = ns.dt.datetime.fromisoformat(SECOND_PUBLICATION)
         self.set_status("repost")
         second = self.sync(state=sync.state)
         count = len(self.github.mutations)
         second.publish(self.prepare(second))
         self.assertEqual(len(second.batch), 1)
-        self.assertEqual(len(self.github.mutations), count)
+        self.assertEqual(len(self.github.mutations), count + 1)
         second.finalize(True)
         self.assertEqual(ns.status_name(self.notion.page, CONFIG), "Published")
+        date = self.notion.page["properties"]["日期"]["date"]["start"]
+        self.assertEqual(date, SECOND_PUBLICATION)
+        self.assertEqual(ns.source_config(self.github.issues[1]["body"])["timestamp"],
+                         int(ns.dt.datetime.fromisoformat(date).timestamp()))
+
+    def test_empty_date_is_filled_after_first_publication(self):
+        self.notion.page["properties"]["日期"]["date"] = None
+        self.deployed()
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], FIRST_PUBLICATION)
+
+    def test_retry_recovers_publication_time_after_state_was_lost(self):
+        sync = self.sync()
+        sync.publish(self.prepare(sync))
+        self.clock.return_value = ns.dt.datetime.fromisoformat(SECOND_PUBLICATION)
+        count = len(self.github.mutations)
+        retry = self.sync()
+        retry.publish(self.prepare(retry))
+        retry.finalize(True)
+        self.assertEqual(len(self.github.mutations), count)
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], FIRST_PUBLICATION)
+
+    def test_content_changed_before_retry_uses_new_publication_time(self):
+        sync = self.sync()
+        sync.publish(self.prepare(sync))
+        sync.finalize(False)
+        self.notion.blocks[0]["paragraph"]["rich_text"] = text("Changed before retry")
+        self.clock.return_value = ns.dt.datetime.fromisoformat(SECOND_PUBLICATION)
+        retry = self.sync(state=ns.read_json(ns.STATE))
+        retry.publish(self.prepare(retry))
+        retry.finalize(True)
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], SECOND_PUBLICATION)
+
+    def test_legacy_batch_without_publication_time_can_complete(self):
+        sync = self.sync()
+        sync.publish(self.prepare(sync))
+        batch = ns.read_json(ns.BATCH)
+        del batch[0]["published_at"]
+        ns.write_json(ns.BATCH, batch)
+        sync.finalize(True)
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], FIRST_PUBLICATION)
 
     def test_delete_removes_issue_then_reports_only_after_successful_deployment(self):
         sync = self.deployed()
@@ -370,6 +429,7 @@ class SyncTests(unittest.TestCase):
         self.assertIsNone(self.notion.page["properties"]["Issue 編號"]["number"])
         self.assertEqual(ns.status_name(self.notion.page, CONFIG), "delete")
         self.assertTrue(second.state["pages"][PID]["deletion_deployed"])
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], FIRST_PUBLICATION)
         third = self.sync(state=ns.read_json(ns.STATE))
         third.publish(self.prepare(third))
         self.assertEqual(third.batch, [])
@@ -475,3 +535,4 @@ instance = GMEEK()
 
 if __name__ == "__main__":
     unittest.main()
+
