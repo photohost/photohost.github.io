@@ -1,4 +1,4 @@
-"""Notion -> GitHub Issues. Python 3.12+, standard library only.
+"""Notion -> GitHub Issues. Python 3.12+; HEIF support needs requirements-notion.txt.
 
 Preview is read-only remotely. Publish is explicitly selected by the workflow.
 Published publishes once; repost explicitly exports edits; delete removes the
@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import hashlib
+import io
 import html
 import json
 import os
@@ -165,6 +166,47 @@ class AssetRedirect(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
+def convert_heif(data):
+    """Decode the primary HEIF photo into a browser-compatible static image."""
+    try:
+        from PIL import Image
+        from pillow_heif import register_heif_opener
+    except ImportError:
+        raise SyncError("HEIC/HEIF 照片需要安裝 scripts/requirements-notion.txt 的圖片套件") from None
+    register_heif_opener(thumbnails=False)
+    try:
+        with Image.open(io.BytesIO(data)) as photo:
+            if photo.format != "HEIF":
+                raise ValueError("Not a HEIF photo")
+            # HEIF can contain multiple frames; publish the designated primary.
+            for index in range(photo.n_frames):
+                photo.seek(index)
+                if photo.info.get("primary"):
+                    break
+            else:
+                photo.seek(0)
+            if photo.width * photo.height > 60_000_000:
+                raise SyncError("HEIC/HEIF 照片超過 6,000 萬像素，請先縮小圖片")
+            profile = photo.info.get("icc_profile")
+            transparent = "A" in photo.getbands()
+            converted = photo.convert("RGBA" if transparent else "RGB")
+            # Keep the display profile, but do not copy camera/GPS metadata.
+            converted.info.clear()
+            output = io.BytesIO()
+            options = {"icc_profile": profile} if profile else {}
+            if transparent:
+                converted.save(output, format="PNG", **options)
+                ext = ".png"
+            else:
+                converted.save(output, format="JPEG", quality=92, subsampling=0, optimize=True, **options)
+                ext = ".jpg"
+            return output.getvalue(), ext
+    except SyncError:
+        raise
+    except (OSError, ValueError, EOFError, Image.DecompressionBombError):
+        raise SyncError("HEIC/HEIF 照片無法轉換，請確認檔案完整或改上傳 JPEG/PNG") from None
+
+
 class Assets:
     TYPES = {"image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif",
              "image/webp": ".webp", "image/avif": ".avif", "application/pdf": ".pdf",
@@ -192,8 +234,14 @@ class Assets:
         if len(data) > MAX_FILE:
             raise SyncError("Attachment exceeds 20 MiB; use an externally hosted link")
         ext = self.TYPES.get(mime)
+        suffix = Path(urllib.parse.urlsplit(url).path).suffix.lower()
+        if mime in ("image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence") or (
+                mime == "application/octet-stream" and suffix in (".heic", ".heif")):
+            data, ext = convert_heif(data)
+            if len(data) > MAX_FILE:
+                raise SyncError("轉換後圖片超過 20 MiB，請先縮小照片")
         if not ext:
-            raise SyncError("Unsupported attachment media type; use PNG/JPEG/WebP/GIF/AVIF/PDF/MP4/MP3/OGG")
+            raise SyncError("Unsupported attachment media type; use PNG/JPEG/HEIC/HEIF/WebP/GIF/AVIF/PDF/MP4/MP3/OGG")
         name = hashlib.sha256(data).hexdigest() + ext
         self.root.mkdir(parents=True, exist_ok=True)
         (self.root / name).write_bytes(data)

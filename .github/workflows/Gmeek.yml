@@ -70,6 +70,9 @@ jobs:
           esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           if [ "$mode" = "build" ]; then echo "build=true" >> "$GITHUB_OUTPUT"; fi
+      - name: Install Notion image support
+        if: steps.mode.outputs.mode != 'build'
+        run: python -m pip install -r scripts/requirements-notion.txt
       - name: Process Notion publication commands
         id: sync
         if: steps.mode.outputs.mode != 'build'
@@ -198,3 +201,4 @@ jobs:
       - name: Report partial sync failure
         if: needs.build.outputs.sync_failed == 'true'
         run: exit 1
+
