@@ -25,7 +25,9 @@
       "issue": 213,
       "slug": "notion-40540a03f4e880519309c919d86e2802",
       "deployed_fingerprint": "f05de2752900282441985b625012ce235699f28b5ee388969d4879db3b89c51c",
-      "published_at": "2026-10-26T17:13:21+08:00"
+      "published_at": "2026-10-26T17:13:21+08:00",
+      "deleted": true,
+      "deletion_deployed": false
     }
   }
 }
