@@ -15,7 +15,8 @@
     },
     "40540a03-f4e8-8047-9bc6-c196f67096d7": {
       "issue": 209,
-      "slug": "notion-40540a03f4e8"
+      "slug": "notion-40540a03f4e8",
+      "deployed_fingerprint": "8898f731cd74e25738f138220190d88f96e8ffd05183219c53bc95989ab84616"
     }
   }
 }
