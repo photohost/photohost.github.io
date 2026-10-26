@@ -323,7 +323,7 @@ def existing_slug(post):
 
 def source_config(body):
     try:
-        result = json.loads((body or "").split("\r\n")[-1].split("##")[1])
+        result = json.loads((body or "").splitlines()[-1].split("##")[1])
         return result if isinstance(result, dict) else {}
     except (ValueError, IndexError):
         return {}
@@ -333,6 +333,15 @@ def article_digest(title, body, labels):
     names = sorted(x["name"] if isinstance(x, dict) else x for x in labels)
     data = [title, (body or "").replace("\r\n", "\n"), names]
     return hashlib.sha256(json.dumps(data, ensure_ascii=False).encode()).hexdigest()
+
+
+def publication_time(site):
+    return dt.datetime.now(dt.timezone(dt.timedelta(hours=site.get("UTC", 8)))).replace(microsecond=0)
+
+
+def article_body(markdown, pid, meta):
+    body = markdown.replace("\r\n", "\n").replace("\n", "\r\n")
+    return body + f"\r\n\r\n<!-- notion-page:{pid} -->\r\n<!-- ##{json.dumps(meta, ensure_ascii=False)}## -->"
 
 
 class Sync:
@@ -459,17 +468,19 @@ class Sync:
             if not markdown.strip():
                 raise SyncError(f"{title}: article body is empty")
             meta = source_config(issue.get("body")) if issue else {}
-            date = page["properties"][self.p["date"]].get("date")
-            if date:
-                timestamp = dt.datetime.fromisoformat(date["start"].replace("Z", "+00:00"))
-                if timestamp.tzinfo is None:
-                    timestamp = timestamp.replace(tzinfo=dt.timezone(dt.timedelta(hours=self.site.get("UTC", 8))))
-                meta["timestamp"] = int(timestamp.timestamp())
             # Keep enough metadata in the Issue to recover its URL even if the
             # response or the following state-file commit is interrupted.
             meta["notion_slug"] = slug
-            body = markdown.replace("\r\n", "\n").replace("\n", "\r\n")
-            body += f"\r\n\r\n<!-- notion-page:{pid} -->\r\n<!-- ##{json.dumps(meta, ensure_ascii=False)}## -->"
+            old_digest = article_digest(issue["title"], issue.get("body"), issue["labels"]) if issue else None
+            # A failed deployment retries the same publication time and Issue.
+            # A new repost (even with unchanged text) receives a fresh time.
+            retry = (meta.get("notion_published_at") and old_digest != entry.get("deployed_fingerprint") and
+                     article_digest(title, article_body(markdown, pid, meta), tags) == old_digest)
+            if not retry:
+                timestamp = publication_time(self.site)
+                meta["timestamp"] = int(timestamp.timestamp())
+                meta["notion_published_at"] = timestamp.isoformat()
+            body = article_body(markdown, pid, meta)
             if len(body.encode("utf-8")) > 60000:
                 raise SyncError(f"{title}: article is too long for one GitHub Issue")
             latest = self.notion.call("GET", "/pages/" + pid)
@@ -482,6 +493,7 @@ class Sync:
                              "title": title, "file_title": file_title,
                              "body": body, "tags": tags, "slug": slug, "issue": number,
                              "old_issue": issue, "revision": latest["last_edited_time"],
+                             "published_at": meta["notion_published_at"],
                              "fingerprint": fingerprint,
                              "needs_sync": status == self.repost_status or not issue_matches or entry.get("deployed_fingerprint") != fingerprint})
         return prepared
@@ -592,6 +604,7 @@ class Sync:
         self.batch.append({"page_id": item["page_id"], "issue": item["issue"], "slug": item["slug"],
                            "action": item["action"], "status": item["status"],
                            "fingerprint": item["fingerprint"],
+                           "published_at": item.get("published_at"),
                            "revision": item["revision"]})
         write_json(BATCH, self.batch)
         updated = self.notion.call("PATCH", "/pages/" + item["page_id"], {"properties": {
@@ -632,6 +645,7 @@ class Sync:
                     props[self.p["issue"]] = {"number": None}
                 else:
                     props[self.p["status"]] = {"status": {"name": self.config["publish_status"]}}
+                    props[self.p["date"]] = {"date": {"start": item.get("published_at") or publication_time(self.site).isoformat()}}
             self.notion.call("PATCH", "/pages/" + item["page_id"], {"properties": props})
             if succeeded:
                 self.record_deployment(item)
@@ -643,6 +657,8 @@ class Sync:
                 entry["deletion_deployed"] = True
             else:
                 entry["deployed_fingerprint"] = item["fingerprint"]
+                if item.get("published_at"):
+                    entry["published_at"] = item["published_at"]
             write_json(STATE, self.state)
 
     def report_error(self, pages, message):
@@ -721,3 +737,4 @@ if __name__ == "__main__":
     except SyncError as exc:
         print("Sync stopped: " + str(exc), file=sys.stderr)
         sys.exit(1)
+
