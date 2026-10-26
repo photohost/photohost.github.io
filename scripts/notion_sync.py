@@ -387,6 +387,43 @@ def publication_time(site):
     return dt.datetime.now(dt.timezone(dt.timedelta(hours=site.get("UTC", 8)))).replace(microsecond=0)
 
 
+def extract_site_timestamp(blocks, site):
+    """Read a standalone final Notion block before Markdown escaping/fencing."""
+    index = len(blocks) - 1
+    while index >= 0:
+        block = blocks[index]
+        if (block["type"] == "paragraph" and not block.get("has_children") and
+                not plain(block.get("paragraph", {}).get("rich_text", [])).strip()):
+            index -= 1
+        else:
+            break
+    if index < 0:
+        return blocks, None
+    block = blocks[index]
+    kind = block["type"]
+    if kind not in ("paragraph", "code") or block.get("has_children"):
+        return blocks, None
+    raw = plain(block.get(kind, {}).get("rich_text", [])).strip()
+    if not re.match(r"<!--\s*##", raw):
+        return blocks, None
+    match = re.fullmatch(r"<!--\s*##(.*?)##\s*-->", raw, re.S)
+    try:
+        config = json.loads(match[1]) if match else None
+    except ValueError:
+        config = None
+    if not isinstance(config, dict) or set(config) != {"timestamp"}:
+        raise SyncError('文末日期設定格式錯誤；請單獨放一行 <!-- ##{"timestamp":1792944000}## -->，只支援 timestamp')
+    value = config["timestamp"]
+    if type(value) is not int or not 0 <= value <= 253402271999:
+        raise SyncError("timestamp 必須是有效的 Unix 秒數整數，不是文字或毫秒")
+    try:
+        dt.datetime.fromtimestamp(value, dt.timezone(dt.timedelta(hours=site.get("UTC", 8))))
+    except (OverflowError, OSError, ValueError):
+        raise SyncError("timestamp 日期超出支援範圍，請確認使用 Unix 秒數") from None
+    # Only the export copy loses this block; the writer's Notion page is intact.
+    return blocks[:index] + blocks[index + 1:], value
+
+
 def article_body(markdown, pid, meta):
     body = markdown.replace("\r\n", "\n").replace("\n", "\r\n")
     return body + f"\r\n\r\n<!-- notion-page:{pid} -->\r\n<!-- ##{json.dumps(meta, ensure_ascii=False)}## -->"
@@ -516,13 +553,20 @@ class Sync:
             if any(x["file_title"] == file_title for x in prepared):
                 raise SyncError("Two Published articles have the same backup filename")
             renderer = Renderer(self.notion, assets)
-            markdown = renderer.render(renderer.children(pid))
+            blocks, site_timestamp = extract_site_timestamp(renderer.children(pid), self.site)
+            markdown = renderer.render(blocks)
             if not markdown.strip():
                 raise SyncError(f"{title}: article body is empty")
             meta = source_config(issue.get("body")) if issue else {}
             # Keep enough metadata in the Issue to recover its URL even if the
             # response or the following state-file commit is interrupted.
             meta["notion_slug"] = slug
+            # Track the override separately so removing it is also a new export.
+            if site_timestamp is None:
+                meta.pop("notion_timestamp_override", None)
+            else:
+                meta["notion_timestamp_override"] = site_timestamp
+                meta["timestamp"] = site_timestamp
             old_digest = article_digest(issue["title"], issue.get("body"), issue["labels"]) if issue else None
             # A failed deployment retries the same publication time and Issue.
             # A new repost (even with unchanged text) receives a fresh time.
@@ -530,7 +574,7 @@ class Sync:
                      article_digest(title, article_body(markdown, pid, meta), tags) == old_digest)
             if not retry:
                 timestamp = publication_time(self.site)
-                meta["timestamp"] = int(timestamp.timestamp())
+                meta["timestamp"] = site_timestamp if site_timestamp is not None else int(timestamp.timestamp())
                 meta["notion_published_at"] = timestamp.isoformat()
             body = article_body(markdown, pid, meta)
             if len(body.encode("utf-8")) > 60000:
@@ -789,5 +833,6 @@ if __name__ == "__main__":
     except SyncError as exc:
         print("Sync stopped: " + str(exc), file=sys.stderr)
         sys.exit(1)
+
 
 

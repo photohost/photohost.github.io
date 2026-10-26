@@ -19,7 +19,21 @@ Slug 可留空，首次發布會以完整的 Notion 頁面 ID 自動產生唯一
 
 「日期」由程式自動填入本次發布的日期與時間（台北時間）。首次 Published 或每次 repost 都會產生新的發布時間，網站部署成功後才寫回 Notion；失敗重試沿用同一次發布時間，刪文保留原日期。此欄位不是預約發布設定，不需手動填寫。「最後同步」另外記錄部署完成或刪文完成的時間。
 
-Notion 的 blog 表格依「日期」降冪排序（新到舊）。網站也使用同一個發布時間排序，因此成功 repost 的文章會回到較新的位置；Gmeek 原有置頂文章仍優先顯示。
+Notion 的 blog 表格依「日期」降冪排序（新到舊）。網站預設使用同一個發布時間排序；若指定以下 timestamp，網站日期與排序改用指定時間，Notion「日期」仍記錄本次實際發布時間。Gmeek 原有置頂文章仍優先顯示。
+
+### 指定網站上的文章日期
+
+在 Notion 文章最末尾，另起一個獨立文字段落，或新增一個只包含這行的程式碼區塊：
+
+```html
+<!-- ##{"timestamp":1792944000}## -->
+```
+
+此例為 **2026/10/26 台北時間 00:00**。如果 10/30 才發布，網站顯示 10/26 並依該時間排序，Notion「日期」則是 10/30 的實際發布時間。請使用 Unix 秒數（不是毫秒）；只支援 timestamp 欄位。文末多留空白段落不影響辨識。
+
+這段設定會保留在 Notion，匯出時轉入 Gmeek 的隱藏設定，不會顯示在網站正文。請只放一份在文末獨立區塊；放在正文中間的範例不會當作設定。格式錯誤時停止發布，原因寫入「同步結果」。只有設定而沒有正文的文章也不會發布。
+
+首次發布使用 Published，已發布文章改日期或內容後使用 repost。保留設定再 repost，網站日期維持指定值，Notion 日期更新；刪除設定再 repost，網站恢復使用本次發布時間。這只是顯示日期，不會延後或預約發布。
 
 delete 會刪除 Issue 及其討論，無法在 GitHub 還原。Git 先前的提交歷史不會被改寫。刪除成功後維持 delete，清空網站連結和 Issue 編號。若要重新建立文章，請複製為新的 Notion 頁面。
 
@@ -56,6 +70,7 @@ delete 會刪除 Issue 及其討論，無法在 GitHub 還原。Git 先前的提
 `src/index.ts` 保留原 Notion Workers 介面，只有 Notion Business／Enterprise 工作區才能使用；預設部署入口為 `src/cloudflare.ts` 編譯後的 `dist/cloudflare.js`。
 
 參考：[Notion Webhooks](https://developers.notion.com/reference/webhooks)、[Cloudflare Workers 方案](https://developers.cloudflare.com/workers/platform/pricing/)、[GitHub 刪除 Issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/administering-issues/deleting-an-issue)。
+
 
 
 

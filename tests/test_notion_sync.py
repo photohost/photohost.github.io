@@ -221,6 +221,133 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(plan["slug"], "日記")
         self.assertEqual(ns.source_config(plan["body"])["style"], "abc")
 
+    def timestamp_footer(self, value=1792944000, kind="paragraph"):
+        return {"id": "date-footer", "type": kind, kind: {
+            "rich_text": text('<!-- ##' + json.dumps({"timestamp": value}) + '## -->'),
+            **({"language": "html"} if kind == "code" else {})}}
+
+    def test_backdated_site_keeps_actual_notion_publication_date(self):
+        self.clock.return_value = ns.dt.datetime.fromisoformat("2026-10-30T10:20:30+08:00")
+        self.notion.blocks.append(self.timestamp_footer())
+        original_blocks = copy.deepcopy(self.notion.blocks)
+        sync = self.sync()
+        plan = self.prepare(sync)
+        meta = ns.source_config(plan[0]["body"])
+        self.assertEqual(meta["timestamp"], 1792944000)
+        self.assertEqual(ns.dt.datetime.fromtimestamp(meta["timestamp"], ns.dt.timezone(ns.dt.timedelta(hours=8))).date().isoformat(), "2026-10-26")
+        self.assertEqual(meta["notion_published_at"], "2026-10-30T10:20:30+08:00")
+        self.assertEqual(plan[0]["body"].count("<!-- ##"), 1)
+        self.assertNotIn("&lt;!--", plan[0]["body"])
+        self.assertEqual(self.notion.blocks, original_blocks)
+        self.assertEqual(self.notion.mutations + self.github.mutations, [])
+        sync.publish(plan)
+        sync.finalize(True)
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], "2026-10-30T10:20:30+08:00")
+        self.assertEqual(sync.state["pages"][PID]["published_at"], "2026-10-30T10:20:30+08:00")
+        self.assertFalse(self.prepare(sync)[0]["needs_sync"])
+
+    def test_code_footer_with_trailing_empty_paragraphs_is_hidden(self):
+        self.notion.blocks.extend([self.timestamp_footer(kind="code"),
+                                  {"type": "paragraph", "paragraph": {"rich_text": []}}])
+        plan = self.prepare(self.sync())[0]
+        self.assertEqual(ns.source_config(plan["body"])["timestamp"], 1792944000)
+        self.assertNotIn("```", plan["body"])
+        self.assertEqual(plan["body"].count("<!-- ##"), 1)
+
+    def test_repost_keeps_site_override_but_updates_actual_date(self):
+        self.notion.blocks.append(self.timestamp_footer())
+        first = self.deployed()
+        old_url = self.notion.page["properties"]["網站連結"]["url"]
+        self.clock.return_value = ns.dt.datetime.fromisoformat(SECOND_PUBLICATION)
+        self.set_status("repost")
+        second = self.sync(state=first.state)
+        second.publish(self.prepare(second))
+        second.finalize(True)
+        self.assertEqual(ns.source_config(self.github.issues[1]["body"])["timestamp"], 1792944000)
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], SECOND_PUBLICATION)
+        self.assertEqual(self.notion.page["properties"]["網站連結"]["url"], old_url)
+        self.assertEqual(len(self.github.issues), 1)
+
+    def test_backdated_failed_publication_retries_both_times_unchanged(self):
+        self.notion.blocks.append(self.timestamp_footer())
+        sync = self.sync()
+        sync.publish(self.prepare(sync))
+        sync.finalize(False)
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], "2026-10-25")
+        count = len(self.github.mutations)
+        self.clock.return_value += ns.dt.timedelta(days=1)
+        retry = self.sync(state=ns.read_json(ns.STATE))
+        retry.publish(self.prepare(retry))
+        retry.finalize(True)
+        self.assertEqual(len(self.github.mutations), count)
+        self.assertEqual(ns.source_config(self.github.issues[1]["body"])["timestamp"], 1792944000)
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], FIRST_PUBLICATION)
+
+    def test_removed_override_during_retry_returns_to_current_publication_time(self):
+        self.notion.blocks.append(self.timestamp_footer())
+        sync = self.sync()
+        sync.publish(self.prepare(sync))
+        sync.finalize(False)
+        self.notion.blocks.pop()
+        self.clock.return_value = ns.dt.datetime.fromisoformat(SECOND_PUBLICATION)
+        retry = self.sync(state=ns.read_json(ns.STATE))
+        retry.publish(self.prepare(retry))
+        retry.finalize(True)
+        meta = ns.source_config(self.github.issues[1]["body"])
+        self.assertNotIn("notion_timestamp_override", meta)
+        self.assertEqual(meta["timestamp"], int(self.clock.return_value.timestamp()))
+        self.assertEqual(meta["notion_published_at"], SECOND_PUBLICATION)
+
+    def test_changed_override_during_retry_uses_new_date_and_publication_time(self):
+        self.notion.blocks.append(self.timestamp_footer())
+        sync = self.sync()
+        sync.publish(self.prepare(sync))
+        sync.finalize(False)
+        self.notion.blocks[-1] = self.timestamp_footer(1793030400)
+        self.clock.return_value = ns.dt.datetime.fromisoformat(SECOND_PUBLICATION)
+        retry = self.sync(state=ns.read_json(ns.STATE))
+        retry.publish(self.prepare(retry))
+        retry.finalize(True)
+        meta = ns.source_config(self.github.issues[1]["body"])
+        self.assertEqual(meta["timestamp"], 1793030400)
+        self.assertEqual(meta["notion_published_at"], SECOND_PUBLICATION)
+
+    def test_invalid_timestamp_stops_before_remote_writes(self):
+        for value in (True, False, "1792944000", 1792944000.0, None, -1, 1792944000000):
+            with self.subTest(value=value):
+                self.notion.blocks = [self.timestamp_footer(value)]
+                with self.assertRaisesRegex(ns.SyncError, "Unix"):
+                    self.prepare(self.sync())
+        self.assertEqual(self.notion.mutations + self.github.mutations, [])
+
+    def test_malformed_or_additional_footer_options_stop_before_remote_writes(self):
+        for raw in ('<!-- ##{"timestamp":123} -->', '<!-- ##{"timestamp":}## -->',
+                    '<!-- ##{"timestamp":123,"script":"alert(1)"}## -->', '<!-- ##[]## -->'):
+            with self.subTest(raw=raw):
+                self.notion.blocks = [{"type": "paragraph", "paragraph": {"rich_text": text(raw)}}]
+                with self.assertRaisesRegex(ns.SyncError, "文末日期設定格式錯誤"):
+                    self.prepare(self.sync())
+        self.assertEqual(self.notion.mutations + self.github.mutations, [])
+
+    def test_timestamp_zero_and_original_user_example_are_supported(self):
+        for value in (0, 1490764800):
+            with self.subTest(value=value):
+                self.notion.blocks.append(self.timestamp_footer(value))
+                plan = self.prepare(self.sync())[0]
+                self.assertEqual(ns.source_config(plan["body"])["timestamp"], value)
+                self.notion.blocks.pop()
+
+    def test_metadata_only_is_not_an_article(self):
+        self.notion.blocks = [self.timestamp_footer()]
+        with self.assertRaisesRegex(ns.SyncError, "article body is empty"):
+            self.prepare(self.sync())
+
+    def test_timestamp_example_inside_article_is_not_used_as_configuration(self):
+        self.notion.blocks.insert(0, self.timestamp_footer(kind="code"))
+        plan = self.prepare(self.sync())[0]
+        self.assertIn("```html", plan["body"])
+        self.assertEqual(ns.source_config(plan["body"])["timestamp"], int(self.clock.return_value.timestamp()))
+
     def test_slug_change_and_collision_are_rejected(self):
         self.github = GitHub([issue()])
         self.notion.page["properties"]["Issue 編號"]["number"] = 42
@@ -581,5 +708,6 @@ instance = GMEEK()
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
