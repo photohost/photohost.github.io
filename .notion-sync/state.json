@@ -28,6 +28,10 @@
       "published_at": "2026-10-26T17:13:21+08:00",
       "deleted": true,
       "deletion_deployed": true
+    },
+    "40540a03-f4e8-80df-ae48-e4c17886bb8f": {
+      "issue": 215,
+      "slug": "notion-40540a03f4e880dfae48e4c17886bb8f"
     }
   }
 }
