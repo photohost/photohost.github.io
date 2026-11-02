@@ -95,6 +95,7 @@ document.addEventListener('DOMContentLoaded', () => setTimeout(() => {
         #header .title-right > .btn { margin: 0; }
         .paginate-container .pagination, .pagination { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
         .pagination > :is(a,span,em) { margin: 0; }
+        .pagination a:is(:hover,:focus,:active,:visited) { color: #333; }
         #article-toc > nav[aria-label="文章閱讀位置"] {
             display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-start;
         }
