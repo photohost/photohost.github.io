@@ -90,6 +90,14 @@ document.addEventListener('DOMContentLoaded', () => setTimeout(() => {
         .pagination :is(a,span,em):is(:hover,:focus) { border-color: #777; }
         #postBody .markdown-alert { color: #333; border-color: #888; background: #f4f4f4; }
         #postBody .markdown-alert .markdown-alert-title { color: #444; }
+        /* Keep neighboring controls visually and physically separate. */
+        #header .title-right { gap: 8px; }
+        #header .title-right > .btn { margin: 0; }
+        .paginate-container .pagination, .pagination { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+        .pagination > :is(a,span,em) { margin: 0; }
+        #article-toc > nav[aria-label="文章閱讀位置"] {
+            display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-start;
+        }
         @media (hover: hover) and (pointer: fine) {
             .reader-button:not(:disabled):not(:active):hover, #header .btn:not(:active):hover, .pagination a:not(:active):hover, #starfield-toggle:not(:active):hover {
                 background: linear-gradient(165deg,#ffffff,rgba(234,234,234,.92));
