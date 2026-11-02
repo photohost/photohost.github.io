@@ -4,7 +4,7 @@ run-name: ${{ inputs.source == 'notion-webhook' && 'Notion 自動發布' || 'bui
 on:
   push:
     branches: [main]
-    paths: ['config.json', 'static/site-theme.js', 'static/article-toc.js', 'static/reader.js', 'static/starfield.js']
+    paths: ['config.json', 'static/site-theme.js', 'static/article-toc.js', 'static/reader.js', 'static/starfield.js', 'static/reading-surfaces.js']
   workflow_dispatch:
     inputs:
       mode:
