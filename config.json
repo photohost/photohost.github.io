@@ -27,6 +27,6 @@
     "themeMode": "fix",
     "dayTheme": "light",
     "nightTheme": "github-light",
-    "script": "<script src='https://cdn.jsdelivr.net/gh/photohost/photohost.github.io/assets/theme2TOC.js'></script>",
+    "script": "<script src='/article-toc.js?v=20261102' defer></script>",
     "allHead": "<script src='/site-theme.js?v=20261102' defer></script>"
 }
