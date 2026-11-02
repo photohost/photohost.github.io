@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
         html { background: #07111d !important; }
         body { position: relative; z-index: 1; }
         #starfield { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
-        #starfield-toggle { position: fixed; bottom: 12px; left: 12px; z-index: 2; border: 1px solid rgba(255,255,255,.35);
+        #starfield-toggle { display: block; position: relative; margin: 12px auto; z-index: 2; border: 1px solid rgba(255,255,255,.35);
             border-radius: 18px; padding: 6px 10px; color: #e2eeef; background: rgba(14,33,46,.7);
             backdrop-filter: blur(12px); font-family: 'Noto Serif TC', 'Noto Serif JP', serif; font-size: 11px; cursor: pointer; }
         #starfield-toggle:focus-visible { outline: 2px solid #bde6df; outline-offset: 3px; }
@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!ctx) { canvas.remove(); return; }
     const toggle = document.createElement('button');
     toggle.id = 'starfield-toggle'; toggle.type = 'button';
-    document.documentElement.append(toggle);
+    (document.getElementById('footer') || document.body).append(toggle);
     const reduced = matchMedia('(prefers-reduced-motion: reduce)');
     let paused = reduced.matches;
     let width = 0, height = 0, stars = [], frame = 0, last = 0;
