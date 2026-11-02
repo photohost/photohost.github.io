@@ -28,5 +28,5 @@
     "dayTheme": "light",
     "nightTheme": "github-light",
     "script": "<script src='/article-toc.js?v=20261102' defer></script>",
-    "allHead": "<script src='/site-theme.js?v=20261102' defer></script>"
+    "allHead": "<script src='/site-theme.js?v=20261102' defer></script><script src='/reader.js?v=20261103' defer></script>"
 }
