@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let style = document.createElement("style");
         style.innerHTML = `
         html {    
-            background: #07111d;
+            background: #101010;
             background-size: cover;
         }
 
@@ -21,25 +21,25 @@ document.addEventListener('DOMContentLoaded', function() {
             font-size: 16px;
             font-family: sans-serif;
             line-height: 1.25;
-            background: rgba(237, 239, 233, 0.84); 
+            background: rgba(238,238,238, 0.84); 
             border-radius: 10px; /* 圆角边框 */
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); /* 添加阴影 */
+            box-shadow: 0 0 10px rgba(0,0,0, 0.5); /* 添加阴影 */
             overflow: auto;
         }
 
         /* 主页博客列表圆角边框 */
         .SideNav {
-            background: rgba(255, 255, 255, 0.6); /* 白色背景，透明度60% */
+            background: rgba(255,255,255, 0.6); /* 白色背景，透明度60% */
             border-radius: 10px; /* 圆角边框 */
             min-width: unset;
         }
 
         /* 鼠标放到博客标题后会高亮 */
         .SideNav-item:hover {
-            background-color: #c3e4e3;
+            background-color: #dddddd;
             border-radius: 10px;
             transform: scale(1.04);
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 5px rgba(0,0,0, 0.5);
         }
 
         .SideNav-item {
@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         /* 分页条 */
         .pagination a:hover, .pagination a:focus, .pagination span:hover, .pagination span:focus, .pagination em:hover, .pagination em:focus {
-            border-color: rebeccapurple;
+            border-color: #777;
         `;
         document.head.appendChild(style);}
 
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
         style.innerHTML = `
 
         html {    
-            background: #07111d;
+            background: #101010;
             background-size: cover;
         }
 
@@ -74,9 +74,9 @@ document.addEventListener('DOMContentLoaded', function() {
             font-size: 16px;
             font-family: sans-serif;
             line-height: 1.25;
-            background: rgba(237, 239, 233, 0.84); 
+            background: rgba(238,238,238, 0.84); 
             border-radius: 10px; /* 圆角边框 */
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); /* 添加阴影 */
+            box-shadow: 0 0 10px rgba(0,0,0, 0.5); /* 添加阴影 */
             overflow: auto;
         }
 
@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', function() {
         /* 图片圆角 */
         .markdown-body img {
             border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.78); 
+            border: 1px solid rgba(255,255,255, 0.78); 
         }
         
         /* notice、caution、warning等提示信息的圆角 */
@@ -94,9 +94,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         /* 代码块 */
         .markdown-body .highlight pre, .markdown-body pre {
-            color: rgb(0, 0, 0);          /* 代码块内代码颜色 */
-            background-color: rgba(243, 244, 243, 0.967);       /* 代码块内框颜色 */
-            box-shadow: 0 10px 30px 0 rgba(222, 217, 217, 0.4);
+            color: rgb(0,0,0);          /* 代码块内代码颜色 */
+            background-color: rgba(244,244,244, 0.967);       /* 代码块内框颜色 */
+            box-shadow: 0 10px 30px 0 rgba(218,218,218, 0.4);
             padding-top: 20px; 
             border-radius: 8px;
         }
@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
           display: inline-block;
           font-size: 1.3rem;
           font-weight: bold;
-          background: rgb(109, 162, 237);
+          background: rgb(156,156,156);
           color: #ffffff;
           padding: 3px 10px ;
           border-radius: 8px;
@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function() {
         style.innerHTML = `
         
         html {    
-            background: #07111d;
+            background: #101010;
             background-size: cover;
         }
 
@@ -137,23 +137,23 @@ document.addEventListener('DOMContentLoaded', function() {
             font-size: 16px;
             font-family: sans-serif;
             line-height: 1.25;
-            background: rgba(237, 239, 233, 0.84); 
+            background: rgba(238,238,238, 0.84); 
             border-radius: 10px; /* 圆角边框 */
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); /* 添加阴影 */
+            box-shadow: 0 0 10px rgba(0,0,0, 0.5); /* 添加阴影 */
             overflow: auto;
         }
         
         .SideNav {
-            background: rgba(255, 255, 255, 0.6); /* 白色背景，透明度60% */
+            background: rgba(255,255,255, 0.6); /* 白色背景，透明度60% */
             border-radius: 10px; /* 圆角边框 */
             min-width: unset;
         }
         
         .SideNav-item:hover {
-            background-color: #c3e4e3;
+            background-color: #dddddd;
             border-radius: 10px;
             transform: scale(1.02);
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 5px rgba(0,0,0, 0.5);
         }
         
         .SideNav-item {
@@ -197,32 +197,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const style = document.createElement('style');
     style.textContent = `
         body {
-            background: rgba(237, 244, 242, .52);
+            background: rgba(242,242,242, .52);
             -webkit-backdrop-filter: blur(20px) saturate(120%);
             backdrop-filter: blur(20px) saturate(120%);
-            border: 1px solid rgba(255, 255, 255, .48);
-            box-shadow: 0 16px 48px rgba(0, 12, 24, .24);
-            color: #132d3c;
+            border: 1px solid rgba(255,255,255, .48);
+            box-shadow: 0 16px 48px rgba(10,10,10, .24);
+            color: #292929;
         }
         .SideNav {
-            background: rgba(255, 255, 255, .20);
-            border: 1px solid rgba(255, 255, 255, .38);
+            background: rgba(255,255,255, .20);
+            border: 1px solid rgba(255,255,255, .38);
             border-radius: 12px;
             min-width: 0;
         }
         .SideNav-item {
             flex-wrap: wrap;
-            border-color: rgba(255, 255, 255, .28);
-            color: #132d3c;
+            border-color: rgba(255,255,255, .28);
+            color: #292929;
             transition: background-color .18s, box-shadow .18s;
         }
         .SideNav-item:hover, .SideNav-item:focus-visible {
-            background: rgba(204, 242, 239, .65);
+            background: rgba(234,234,234, .65);
             transform: none;
             border-radius: 9px;
-            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255, .55);
         }
-        .SideNav-item:focus-visible { outline: 2px solid #26736d; outline-offset: 2px; }
+        .SideNav-item:focus-visible { outline: 2px solid #626262; outline-offset: 2px; }
         .article-preview {
             flex: 0 0 100%;
             min-width: 0;
@@ -232,7 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
             font-size: 12px;
             font-weight: 400;
             line-height: 1.7;
-            color: #304c57;
+            color: #474747;
             white-space: normal;
             overflow-wrap: anywhere;
             transition: max-height .18s ease, opacity .18s ease, margin .18s ease;
@@ -247,7 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
             -webkit-box-orient: vertical;
         }
         @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-            body { background: rgba(237, 244, 242, .92); }
+            body { background: rgba(242,242,242, .92); }
         }
         @media (max-width: 600px) {
             body { margin: 12px 10px; }
