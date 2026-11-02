@@ -28,5 +28,5 @@
     "dayTheme": "light",
     "nightTheme": "github-light",
     "script": "<script src='/article-toc.js?v=20261103mono' defer></script>",
-    "allHead": "<script src='/site-theme.js?v=20261103mono' defer></script><script src='/reader.js?v=20261103mono' defer></script><script src='/starfield.js?v=20261103mono' defer></script><script src='/reading-surfaces.js?v=20261103mono' defer></script>"
+    "allHead": "<script src='/site-theme.js?v=20261103mono' defer></script><script src='/reader.js?v=20261103mono' defer></script><script src='/starfield.js?v=20261103mono' defer></script><script src='/reading-surfaces.js?v=20261103spacing' defer></script>"
 }
