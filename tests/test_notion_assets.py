@@ -47,6 +47,15 @@ class AssetTests(unittest.TestCase):
         convert.assert_not_called()
         self.assertEqual((self.assets.root / url.rsplit("/", 1)[-1]).read_bytes(), b"existing JPEG")
 
+    def test_all_web_image_formats_are_copied_without_reencoding(self):
+        for mime, ext in (("image/png", ".png"), ("image/jpeg", ".jpg"),
+                          ("image/gif", ".gif"), ("image/webp", ".webp"), ("image/avif", ".avif")):
+            with self.subTest(mime=mime):
+                original = b"original image or animation bytes: " + mime.encode()
+                url = self.resolve(original, mime, "photo" + ext)
+                self.assertTrue(url.endswith(ext))
+                self.assertEqual((self.assets.root / url.rsplit("/", 1)[-1]).read_bytes(), original)
+
     def test_conversion_failure_and_size_limit_do_not_write_partial_asset(self):
         with patch.object(ns, "convert_heif", side_effect=ns.SyncError("cannot decode")):
             with self.assertRaises(ns.SyncError):
