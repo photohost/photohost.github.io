@@ -123,28 +123,62 @@ def link_url(url):
 
 
 def rich(items):
-    out = []
+    """Serialize Notion inline runs without losing delimiter-boundary formatting."""
+    keys = ("bold", "italic", "strikethrough", "underline", "code")
+    runs = []
     for item in items:
         kind = item.get("type", "text")
         if kind == "equation":
-            out.append("$" + item["equation"]["expression"] + "$")
+            runs.append({"kind": kind, "expression": item["equation"]["expression"]})
             continue
         if kind != "text":
             raise SyncError("Mentions must be replaced with ordinary text or public links before publishing")
         raw = item.get("text", {}).get("content", item.get("plain_text", ""))
-        ann = item.get("annotations", {})
-        if ann.get("code"):
-            fence = "`" * (max([len(x) for x in re.findall(r"`+", raw)] or [0]) + 1)
-            content = fence + " " + raw + " " + fence
-        else:
-            content = escape(raw)
-            for key, marker in (("bold", "**"), ("italic", "*"), ("strikethrough", "~~")):
-                if ann.get(key) and content.strip():
-                    m = re.fullmatch(r"(\s*)(.*?)(\s*)", content, flags=re.S)
-                    content = m[1] + marker + m[2] + marker + m[3]
-            if ann.get("underline"):
-                content = "<u>" + content + "</u>"
+        if not raw:
+            continue
+        flags = {key: bool(item.get("annotations", {}).get(key)) for key in keys}
         href = item.get("href") or (item.get("text", {}).get("link") or {}).get("url")
+        # Notion may split a single styled phrase into several otherwise identical runs.
+        if runs and runs[-1].get("flags") == flags and runs[-1].get("href") == href:
+            runs[-1]["raw"] += raw
+        else:
+            runs.append({"kind": "text", "raw": raw, "flags": flags, "href": href})
+    out = []
+    for index, run in enumerate(runs):
+        if run["kind"] == "equation":
+            out.append("$" + run["expression"] + "$")
+            continue
+        raw = run["raw"].replace("\r\n", "\n").replace("\r", "\n")
+        ann, href = run["flags"], run["href"]
+        if ann["code"]:
+            parts = []
+            for line in raw.split("\n"):
+                if not line:
+                    parts.append("")
+                    continue
+                fence = "`" * (max([len(x) for x in re.findall(r"`+", line)] or [0]) + 1)
+                parts.append(fence + line + fence if line.isspace() else fence + " " + line + " " + fence)
+            content = "<br> ".join(parts)
+        else:
+            # Notion Shift+Enter is a visible break, not a Markdown soft newline.
+            content = escape(raw).replace("\n", "<br> ")
+        styled_neighbor = any(
+            0 <= other < len(runs) and any(runs[other].get("flags", {}).values())
+            for other in (index - 1, index + 1))
+        core = raw.strip()
+        html_style = ann["underline"] or ann["code"] or "\n" in raw or styled_neighbor or (
+            core and (not core[0].isalnum() or not core[-1].isalnum()))
+        for key, marker, tag in (("bold", "**", "strong"), ("italic", "*", "em"),
+                                 ("strikethrough", "~~", "del"), ("underline", "", "ins")):
+            if not ann[key] or not core:
+                continue
+            if html_style:
+                # Safe inline HTML is supported by GFM; unlike ~~(text)~~ it is
+                # unambiguous next to letters, punctuation and other styled runs.
+                content = f"<{tag}>" + content + f"</{tag}>"
+            else:
+                match = re.fullmatch(r"(\s*)(.*?)(\s*)", content, flags=re.S)
+                content = match[1] + marker + match[2] + marker + match[3]
         if href:
             content = f"[{content}]({link_url(href)})"
         out.append(content)
