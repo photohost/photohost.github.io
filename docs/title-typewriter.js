@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
         @media (prefers-reduced-motion: reduce) { #homepage-title::after { animation: none; } }
     `;
     document.head.append(style);
-    const words = ['真實的我', '我是誰？', '痛苦', '孤獨', '獨行', '404 ERROR', '迷失的曠野', '虛假的我', 'Server Not Found'];
+    const words = ['終末孤寂', '我是誰？', '孤獨', '獨行俠', '404 ERROR', 'server not found'];
     const reduced = matchMedia('(prefers-reduced-motion: reduce)');
     const TYPE = 140, ERASE = 85, HOLD = 3000, GAP = 200;
     let index = 0, count = 0, deleting = false, timer;
