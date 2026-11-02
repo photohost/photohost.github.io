@@ -60,7 +60,6 @@ document.addEventListener('DOMContentLoaded', () => {
         el.addEventListener('click', action); parent.append(el); return el;
     }
     const behavior = () => matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth';
-    button('↑ 回到頂端', () => window.scrollTo({top: 0, behavior: behavior()}));
     const end = document.createElement('div');
     end.id = 'article-reading-end';
     body.after(end);

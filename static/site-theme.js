@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let style = document.createElement("style");
         style.innerHTML = `
         html {    
-            background: url('https://i.meee.com.tw/wUHf93S.jpg') no-repeat center center fixed;
+            background: #07111d;
             background-size: cover;
         }
 
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
         style.innerHTML = `
 
         html {    
-            background: url('https://i.meee.com.tw/wUHf93S.jpg') no-repeat center center fixed;
+            background: #07111d;
             background-size: cover;
         }
 
@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function() {
         style.innerHTML = `
         
         html {    
-            background: url('https://wowpb.pages.dev/file/2a84a86f2bb288032e3a1.jpg') no-repeat center center fixed;
+            background: #07111d;
             background-size: cover;
         }
 
