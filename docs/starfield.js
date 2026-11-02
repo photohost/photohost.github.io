@@ -3,13 +3,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('starfield')) return;
     const style = document.createElement('style');
     style.textContent = `
-        html { background: #07111d !important; }
+        html { background: #101010 !important; }
         body { position: relative; z-index: 1; }
         #starfield { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
         #starfield-toggle { display: block; position: relative; margin: 12px auto; z-index: 2; border: 1px solid rgba(255,255,255,.35);
-            border-radius: 18px; padding: 6px 10px; color: #e2eeef; background: rgba(14,33,46,.7);
+            border-radius: 18px; padding: 6px 10px; color: #ececec; background: rgba(30,30,30,.7);
             backdrop-filter: blur(12px); font-family: 'Noto Serif TC', 'Noto Serif JP', serif; font-size: 11px; cursor: pointer; }
-        #starfield-toggle:focus-visible { outline: 2px solid #bde6df; outline-offset: 3px; }
+        #starfield-toggle:focus-visible { outline: 2px solid #dddddd; outline-offset: 3px; }
         @media print { #starfield, #starfield-toggle { display: none; } }
     `;
     document.head.append(style);
@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         draw(0);
     }
     function draw(delta) {
-        ctx.fillStyle = '#07111d'; ctx.fillRect(0,0,width,height);
+        ctx.fillStyle = '#101010'; ctx.fillRect(0,0,width,height);
         const focal = Math.min(width,height) * .75;
         for (const star of stars) {
             const oldZ = star.z;
@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const x = width/2 + star.x*focal/star.z, y = height/2 + star.y*focal/star.z;
             if (x < 0 || x > width || y < 0 || y > height) { reset(star); continue; }
             const radius = Math.min(2.1, .35 + (1-star.z)*1.4);
-            ctx.strokeStyle = ctx.fillStyle = 'rgba(220,239,246,' + (.3 + .65*(1-star.z)) + ')';
+            ctx.strokeStyle = ctx.fillStyle = 'rgba(236,236,236,' + (.3 + .65*(1-star.z)) + ')';
             if (delta && star.z < .55) {
                 const px = width/2 + star.x*focal/oldZ, py = height/2 + star.y*focal/oldZ;
                 ctx.lineWidth = radius*.75; ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(x,y); ctx.stroke();

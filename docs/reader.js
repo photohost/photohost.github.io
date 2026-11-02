@@ -14,25 +14,25 @@ document.addEventListener('DOMContentLoaded', () => {
         #postBody img { box-sizing: border-box; display: block; width: auto; height: auto; max-width: 100%;
             max-height: min(72vh,760px); object-fit: contain; margin: 24px auto;
             cursor: zoom-in; border-radius: 12px; }
-        #postBody img:focus-visible { outline: 3px solid #34766f; outline-offset: 4px; }
+        #postBody img:focus-visible { outline: 3px solid #676767; outline-offset: 4px; }
         #reader-nav { display: flex; justify-content: flex-end; gap: 8px; margin: 16px 0; }
         .reader-button { border: 1px solid rgba(255,255,255,.6); border-radius: 10px;
-            padding: 8px 12px; background: rgba(237,244,242,.8); color: #183744;
+            padding: 8px 12px; background: rgba(242,242,242,.8); color: #313131;
             font-size: 13px; cursor: pointer; line-height: 1.5; }
-        .reader-button:hover { background: #d4eeea; }
-        .reader-button:focus-visible { outline: 2px solid #34766f; outline-offset: 2px; }
+        .reader-button:hover { background: #e8e8e8; }
+        .reader-button:focus-visible { outline: 2px solid #676767; outline-offset: 2px; }
         .reader-button:disabled { opacity: .45; cursor: default; }
         #image-viewer { position: fixed; inset: 16px; width: calc(100vw - 32px); height: calc(100dvh - 32px);
             max-width: none; max-height: none; margin: auto; padding: 12px; border-radius: 18px;
-            border: 1px solid rgba(255,255,255,.5); background: rgba(218,232,232,.94);
-            color: #183744; box-shadow: 0 16px 60px rgba(0,12,24,.4);
+            border: 1px solid rgba(255,255,255,.5); background: rgba(229,229,229,.94);
+            color: #313131; box-shadow: 0 16px 60px rgba(10,10,10,.4);
             backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
         #image-viewer[open] { display: flex; flex-direction: column; gap: 10px; }
-        #image-viewer::backdrop { background: rgba(4,16,27,.78); backdrop-filter: blur(6px); }
+        #image-viewer::backdrop { background: rgba(14,14,14,.78); backdrop-filter: blur(6px); }
         #image-viewer .viewer-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: none; }
         #image-viewer .viewer-close { margin-left: auto; }
         #image-viewer .viewer-stage { flex: 1; min-height: 0; overflow: auto; border-radius: 10px;
-            background: rgba(6,24,35,.09); overscroll-behavior: contain; touch-action: pan-x pan-y; }
+            background: rgba(21,21,21,.09); overscroll-behavior: contain; touch-action: pan-x pan-y; }
         #image-viewer .viewer-canvas { min-width: 100%; min-height: 100%; display: grid; place-items: center; }
         #image-viewer img { display: block; max-width: none; max-height: none; object-fit: contain; user-select: none; }
         #image-viewer .viewer-caption { font-size: 12px; line-height: 1.6; margin: 0; overflow-wrap: anywhere; flex: none; max-height: 4em; overflow: auto; }
