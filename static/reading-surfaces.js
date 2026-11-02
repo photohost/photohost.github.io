@@ -68,6 +68,17 @@ document.addEventListener('DOMContentLoaded', () => setTimeout(() => {
         .SideNav-item:hover, .SideNav-item:focus-visible { background: #e4e4e4; }
         .SideNav-icon { color: #666 !important; }
         #header, #postBody { border-color: #d3d3d3; }
+        .SideNav.border { border-color: #cfcfcf !important; }
+        #header .octicon, .subnav-search-icon { color: #666; }
+        #postBody :is(h1,h2,h3,h4,h5,h6) { border-color: #d0d0d0; }
+        #postBody hr { background-color: #d0d0d0; border-color: #d0d0d0; }
+        #postBody blockquote { color: #666; border-color: #bdbdbd; }
+        #postBody :is(th,td) { border-color: #ccc; }
+        #postBody table tr { background: #fafafa; border-color: #ccc; }
+        #postBody table tr:nth-child(2n) { background: #f0f0f0; }
+        #postBody code { background-color: #e6e6e6; }
+        #postBody pre, #postBody .highlight pre { background-color: #e8e8e8; }
+        #postBody pre code { background-color: transparent; }
         #footer a, #postBody a { color: #3a3a3a; }
         #footer a, #postBody a:not(.anchor) { text-decoration: underline; text-underline-offset: .18em; }
         #footer a:hover, #postBody a:hover { color: #111; }
