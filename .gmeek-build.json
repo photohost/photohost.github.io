@@ -29,18 +29,18 @@
     "themeMode": "fix",
     "dayTheme": "light",
     "nightTheme": "github-light",
-    "script": "<script src='/article-toc.js?v=20261103mono' defer></script>"
+    "script": "<script src='/article-toc.js' defer></script>"
   },
   "renderer": {
-    "scripts/build_gmeek.py": "4102a893068242426a8f610f9ca14adfdf65b533df4b00598900b39ca17a79a4",
+    "scripts/build_gmeek.py": "89de294ab5d4d15e253981902cc9544ea8d7fb8296490fa133b2d0c1d74dfec5",
     "scripts/font_pilot.py": "f7bbc9e9e0890c3973cdec01d71cf2f10a378de17f0836edd797c37b2f31209f",
     "scripts/image_reading.py": "56292d3aff8c36c7494290d39eb263d8249f82da3b3eddb6d9b95e1e6a0325a6",
     "scripts/notion_sync.py": "7cd43cd3308b83e2d902ccc3c3bb85e696a309b7928fe3da86d572f77b540bc9",
     "scripts/preview_notion.py": "898b1fb5358fbc25b0b458af14e320367b307b6f4df209ce9882acc6e5835020",
-    "scripts/site_build.py": "2ff3764b6e2301fd6be1cf96d9f83dbca956d6a2ac883158c6e5c0f9efa62fca",
+    "scripts/site_build.py": "1fe414b15e78b73d6b77368103c84cbdcbcce8c22c783e197883ad72cf62dc31",
     "scripts/sync_notion.py": "b13ad4e5f3cacbcf71f56ea8b5399d0cab9ab944a2981a623095dd7c8b4bc991"
   },
-  "allHead": "<script>(()=>{const p=location.pathname;document.documentElement.dataset.blogLayout=p==='/'||p.includes('/index.html')||p.includes('/page')?'list':p.includes('/post/')||p.includes('/link.html')||p.includes('/about.html')?'post':p.includes('/tag')?'search':''})()</script><link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin><link rel=\"preload\" as=\"style\" href=\"https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&amp;family=Noto+Serif+TC:wght@400;600;700&amp;display=swap\" onload=\"this.rel='stylesheet'\"><noscript><link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&amp;family=Noto+Serif+TC:wght@400;600;700&amp;display=swap\"></noscript><link rel=\"stylesheet\" href=\"/reading.css?v=20261103\"><script src='/site-theme.js?v=20261103-early-css' defer></script><script src='/reader.js?v=20261103-early-css' defer></script><script src='/starfield.js?v=20261103mono' defer></script><script src='/title-typewriter.js?v=2ce6e92' defer></script><style>#avatarImg{display:none}.title-left .blogTitle{display:inline!important}</style><style>.article-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 16px}.article-meta .Label{color:#fff;font-variant-numeric:tabular-nums}.article-meta a{color:inherit}.article-meta a:focus-visible{outline:2px solid currentColor;outline-offset:2px}</style>",
+  "allHead": "<script>(()=>{const p=location.pathname;document.documentElement.dataset.blogLayout=p==='/'||p.includes('/index.html')||p.includes('/page')?'list':p.includes('/post/')||p.includes('/link.html')||p.includes('/about.html')?'post':p.includes('/tag')?'search':''})()</script><link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin><link rel=\"preload\" as=\"style\" href=\"https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&amp;family=Noto+Serif+TC:wght@400;600;700&amp;display=swap\" onload=\"this.rel='stylesheet'\"><noscript><link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&amp;family=Noto+Serif+TC:wght@400;600;700&amp;display=swap\"></noscript><link rel=\"stylesheet\" href=\"/reading.css\"><script src='/site-theme.js' defer></script><script src='/reader.js' defer></script><script src='/starfield.js' defer></script><script src='/title-typewriter.js' defer></script><style>#avatarImg{display:none}.title-left .blogTitle{display:inline!important}</style><style>.article-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 16px}.article-meta .Label{color:#fff;font-variant-numeric:tabular-nums}.article-meta a{color:inherit}.article-meta a:focus-visible{outline:2px solid currentColor;outline-offset:2px}</style>",
   "assets": {
     "2024-06-19_18-28.png": "acb1f1f9f09abe39e610714ffd8fc1dabb5c18fdbc9c5dfd27f6674e48614bba",
     "article-toc.js": "bf7099a30d6ed2eec86af176c36033aa5f72314c17da9e5e99625b38898bd866",
