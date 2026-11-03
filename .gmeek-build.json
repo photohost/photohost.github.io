@@ -32,12 +32,13 @@
     "script": "<script src='/article-toc.js?v=20261103mono' defer></script>"
   },
   "renderer": {
-    "scripts/build_gmeek.py": "2be1d729c37b03e72e42154c39d2e0a16d16189866455d6088c28040b7b54693",
+    "scripts/build_gmeek.py": "ae059aba812e88fd5f4038e55ec510b90b8d88c491d99deb284b5036cdc26bd6",
+    "scripts/image_reading.py": "56292d3aff8c36c7494290d39eb263d8249f82da3b3eddb6d9b95e1e6a0325a6",
     "scripts/notion_sync.py": "f8a8b01f5770d77d871eeafd8781a3ac1bb34b5d4b6487c19ce31fab782ee323",
     "scripts/site_build.py": "70c943433e0a04eb9b47eece4d0d68e4f4d5eb901671a0ca17d2d1eeb4e45339",
     "scripts/sync_notion.py": "b13ad4e5f3cacbcf71f56ea8b5399d0cab9ab944a2981a623095dd7c8b4bc991"
   },
-  "allHead": "<script src='/site-theme.js?v=20261103mono' defer></script><script src='/reader.js?v=20261103-build-routing' defer></script><script src='/starfield.js?v=20261103mono' defer></script><script src='/reading-surfaces.js?v=20261103spacing' defer></script><script src='/title-typewriter.js?v=2ce6e92' defer></script><style>#avatarImg{display:none}.title-left .blogTitle{display:inline!important}</style><style>.article-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 16px}.article-meta .Label{color:#fff;font-variant-numeric:tabular-nums}.article-meta a{color:inherit}.article-meta a:focus-visible{outline:2px solid currentColor;outline-offset:2px}</style>",
+  "allHead": "<script src='/site-theme.js?v=20261103mono' defer></script><script src='/reader.js?v=20261103-responsive-images' defer></script><script src='/starfield.js?v=20261103mono' defer></script><script src='/reading-surfaces.js?v=20261103spacing' defer></script><script src='/title-typewriter.js?v=2ce6e92' defer></script><style>#avatarImg{display:none}.title-left .blogTitle{display:inline!important}</style><style>.article-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 16px}.article-meta .Label{color:#fff;font-variant-numeric:tabular-nums}.article-meta a{color:inherit}.article-meta a:focus-visible{outline:2px solid currentColor;outline-offset:2px}</style>",
   "assets": {
     "2024-06-19_18-28.png": "acb1f1f9f09abe39e610714ffd8fc1dabb5c18fdbc9c5dfd27f6674e48614bba",
     "article-toc.js": "bf7099a30d6ed2eec86af176c36033aa5f72314c17da9e5e99625b38898bd866",
@@ -47,7 +48,7 @@
     "notion-assets/429d8f60c9168a2e254f15c244fe2ad1e5849f4ba3de3435d65b31f55aa84029.jpg": "429d8f60c9168a2e254f15c244fe2ad1e5849f4ba3de3435d65b31f55aa84029",
     "notion-assets/6913ec2165ef8da532704d4b9d00e278c2cb162501d4ca6b45d7f3dbd627f00d.jpg": "6913ec2165ef8da532704d4b9d00e278c2cb162501d4ca6b45d7f3dbd627f00d",
     "notion-assets/9d1a1ecc9509df0c4405c4652d43213846897e70088792e2823b78a516d7e55e.jpg": "9d1a1ecc9509df0c4405c4652d43213846897e70088792e2823b78a516d7e55e",
-    "reader.js": "9c9f15a2cb77c4fbf059a29671ddfc22e83b6875ffcac960e76b956d51142954",
+    "reader.js": "cfd7116e99b80314c5b587e0b5e7aedf32c0e12dbb16b774ccbe4d3ae144774d",
     "reading-surfaces.js": "22c923b841063c595a7865ac28ffc4aa8eece8c5b5291abc1edda7610a36d0b2",
     "site-theme.js": "fdb24811ded626a1b40f34637351f5267aec336ed9e8895d559493daddb4fa0f",
     "starfield.js": "ea7ba264ea222404ac217ed16f687dff8dcbe13e985c68b0d5c5ef76993d0e5f",
