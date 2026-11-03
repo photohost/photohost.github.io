@@ -122,6 +122,56 @@ class SyncTests(unittest.TestCase):
     def prepare(self, sync):
         return sync.prepare(sync.publish_pages(), preview=True)
 
+    def run_main(self, command):
+        ns.write_json("notion-sync.json", CONFIG)
+        ns.write_json("config.json", SITE)
+        with patch.dict(os.environ, {"NOTION_TOKEN": "test-notion", "GITHUB_TOKEN": "test-github",
+                                     "NOTION_DELETE_TOKEN": "test-delete", "GITHUB_REPOSITORY": "owner/repo"}), \
+                patch.object(sys, "argv", ["sync_notion.py", command]), \
+                patch.object(ns, "API", side_effect=[self.notion, self.github, self.github]), \
+                patch.object(ns, "output") as output:
+            ns.main()
+        return output
+
+    def test_main_skips_idle_publications_and_completed_deletions(self):
+        for command in ("publish", "preview"):
+            for status, receipt in (("Published", {"deployed_fingerprint": "done"}),
+                                    ("delete", {"deleted": True, "deletion_deployed": True})):
+                with self.subTest(command=command, status=status):
+                    self.notion.page = article(status)
+                    ns.write_json(ns.STATE, {"pages": {PID: {"issue": 42, "slug": "sample", **receipt}}})
+                    with patch.object(self.github, "pages", wraps=self.github.pages) as github_pages, \
+                            patch.object(self.github, "call", wraps=self.github.call) as github_call, \
+                            patch.object(self.notion, "call", wraps=self.notion.call) as notion_call:
+                        output = self.run_main(command)
+                    github_pages.assert_not_called()
+                    github_call.assert_not_called()
+                    self.assertFalse(any("/blocks/" in call.args[1] for call in notion_call.call_args_list))
+                    self.assertEqual(self.notion.mutations, [])
+                    self.assertEqual(ns.read_json(ns.BATCH), [])
+                    self.assertFalse(ns.PREVIEW.exists())
+                    output.assert_called_once_with("has_articles", "false")
+
+    def test_main_keeps_first_publication_retries_repost_and_delete(self):
+        self.run_main("publish").assert_called_once_with("has_articles", "true")
+        first_batch = ns.read_json(ns.BATCH)
+        self.assertEqual(len(first_batch), 1)
+        self.run_main("publish").assert_called_once_with("has_articles", "true")
+        self.assertEqual(len(self.github.issues), 1)
+        self.assertEqual(ns.read_json(ns.BATCH)[0]["published_at"], first_batch[0]["published_at"])
+        self.run_main("finalize-success")
+        self.set_status("repost")
+        self.run_main("publish").assert_called_once_with("has_articles", "true")
+        self.assertEqual(len(self.github.issues), 1)
+        self.assertEqual(ns.read_json(ns.BATCH)[0]["status"], "repost")
+        self.run_main("finalize-success")
+        self.set_status("delete")
+        self.run_main("publish").assert_called_once_with("has_articles", "true")
+        self.assertEqual(self.github.issues, {})
+        self.assertEqual(ns.read_json(ns.BATCH)[0]["action"], "delete")
+        self.run_main("publish").assert_called_once_with("has_articles", "true")
+        self.assertEqual(self.github.issues, {})
+
     def test_only_published_is_selected(self):
         for status in ("Draft", "Ready"):
             self.notion.page = article(status)
@@ -708,6 +758,7 @@ instance = GMEEK()
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
 

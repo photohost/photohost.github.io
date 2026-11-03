@@ -9,7 +9,12 @@ export const TARGET = {
 	ref: "main",
 } as const
 
-type Env = Record<string, string | undefined>
+export type Env = {
+	WEBHOOK_PATH_TOKEN?: string
+	NOTION_WEBHOOK_SECRET?: string
+	WEBHOOK_BOOTSTRAP_PUBLIC_KEY?: string
+	GITHUB_ACTIONS_TOKEN?: string
+}
 type Request = { method: string; rawBody: string; headers: Record<string, string> }
 type ObjectValue = Record<string, unknown>
 
@@ -83,6 +88,13 @@ export async function handleDelivery(request: Request, env: Env,
 	if (!eligibleEvent(body)) return "Ignored unrelated or bot-only event"
 	const eventId = String(body.id)
 	if (dispatched.has(eventId)) return "Ignored duplicate event in batch"
+	await dispatchPublication(env, fetcher)
+
+	dispatched.add(eventId)
+	return `Queued blog publication for Notion event ${eventId}`
+}
+
+export async function dispatchPublication(env: Env, fetcher: typeof fetch = fetch): Promise<void> {
 	if (!env.GITHUB_ACTIONS_TOKEN) throw new Error("GITHUB_ACTIONS_TOKEN is not configured")
 	// Destination, branch, and mode are fixed in code; never accept them from a webhook.
 	const url = `https://api.github.com/repos/${TARGET.repository}/actions/workflows/${TARGET.workflow}/dispatches`
@@ -97,11 +109,10 @@ export async function handleDelivery(request: Request, env: Env,
 			signal: AbortSignal.timeout(8000),
 		})
 	} catch {
-		throw new Error("GitHub dispatch network failure; Notion will retry")
+		throw new Error("GitHub dispatch network failure")
 	}
 	if (response.status !== 204 && response.status !== 200) {
-		throw new Error(`GitHub dispatch returned HTTP ${response.status}; Notion will retry`)
+		throw new Error(`GitHub dispatch returned HTTP ${response.status}`)
 	}
-	dispatched.add(eventId)
-	return `Queued blog publication for Notion event ${eventId}`
 }
+

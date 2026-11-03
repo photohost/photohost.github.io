@@ -24,8 +24,32 @@ test("receiver rejects large streamed bodies and non-POST requests", async () =>
 	assert.equal((await receive(request("x".repeat(262145)), env, noFetch)).status, 413)
 	assert.equal((await receive(new Request("https://worker.example/notion/local-test-path"), env, noFetch)).status, 405)
 })
-test("receiver acknowledges only successful dispatch and requests Notion retry on failure", async () => {
-	assert.equal((await receive(request(), env, async () => new Response(null, { status: 204 }))).status, 200)
-	assert.equal((await receive(request(), env, async () => new Response("private error", { status: 403 }))).status, 503)
-	assert.equal((await receive(request(), env, async () => { throw new Error("private network error") })).status, 503)
+test("receiver acknowledges durable acceptance and never dispatches directly", async () => {
+	let saved = 0
+	const queuedEnv = { ...env, PUBLICATION_QUEUE: { getByName(name) {
+		assert.equal(name, TARGET.repository)
+		return { async fetch(internal) {
+			assert.deepEqual(await internal.json(), { id: event.id })
+			saved++
+			return new Response("Stored")
+		} }
+	} } }
+	assert.equal((await receive(request(), queuedEnv, noFetch)).status, 200)
+	assert.equal(saved, 1)
 })
+test("receiver asks Notion to retry if durable acceptance fails", async () => {
+	assert.equal((await receive(request(), env, noFetch)).status, 503)
+	for (const fetch of [
+		async () => new Response("unavailable", { status: 503 }),
+		async () => { throw new Error("storage unavailable") },
+	]) {
+		const queuedEnv = { ...env, PUBLICATION_QUEUE: { getByName: () => ({ fetch }) } }
+		assert.equal((await receive(request(), queuedEnv, noFetch)).status, 503)
+	}
+})
+test("bot writebacks are filtered before they reach the queue", async () => {
+	const bot = { ...event, authors: [{ type: "bot" }] }
+	const queuedEnv = { ...env, PUBLICATION_QUEUE: { getByName() { throw new Error("must not enqueue") } } }
+	assert.equal((await receive(request(JSON.stringify(bot)), queuedEnv, noFetch)).status, 200)
+})
+

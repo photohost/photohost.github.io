@@ -34,6 +34,7 @@ permissions:
 concurrency:
   group: gmeek-publish
   cancel-in-progress: false
+  queue: max
 
 jobs:
   build:
@@ -197,5 +198,6 @@ jobs:
       - name: Report partial sync failure
         if: needs.build.outputs.sync_failed == 'true'
         run: exit 1
+
 
 
