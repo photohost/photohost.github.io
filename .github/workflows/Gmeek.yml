@@ -64,8 +64,8 @@ jobs:
           EVENT: ${{ github.event_name }}
           EVENT_SCHEDULE: ${{ github.event.schedule }}
         run: python scripts/site_build.py choose
-      - name: Install Notion image support
-        if: startsWith(steps.mode.outputs.mode, 'notion-')
+      - name: Install image support
+        if: steps.mode.outputs.mode != 'assets'
         run: python -m pip install -r scripts/requirements-notion.txt
       - name: Process Notion publication commands
         id: sync

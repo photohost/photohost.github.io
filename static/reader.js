@@ -150,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
         previousOverflow = document.documentElement.style.overflow;
         document.documentElement.style.overflow = 'hidden';
         dialog.showModal();
-        image.src = target.currentSrc || target.src;
+        image.src = target.dataset.originalSrc || target.currentSrc || target.src;
         if (image.complete) layout();
     }
     body.querySelectorAll('img').forEach(img => {
