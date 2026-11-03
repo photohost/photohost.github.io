@@ -14,6 +14,7 @@ import urllib.request
 from urllib.parse import quote
 
 from image_reading import prepare_images
+from font_pilot import apply_pilot
 from site_build import can_increment, save_receipt
 from notion_sync import read_json, valid_slug, source_config, MARKER, BATCH, SyncError
 
@@ -220,7 +221,9 @@ def main():
                  "_install_fixed_slugs": lambda cls: install_adapter(cls, state, batch if reusable else None)}
     exec(compile(tree, str(source_path), "exec"), namespace)
     add_article_metadata(read_json("blogBase.json"), state, batch or [])
-    prepare_images(read_json("config.json")["homeUrl"])
+    config = read_json("config.json")
+    prepare_images(config["homeUrl"])
+    apply_pilot(config.get("allHead", ""))
     save_receipt()
 
 
