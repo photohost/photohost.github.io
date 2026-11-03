@@ -15,7 +15,7 @@ from urllib.parse import quote
 
 from image_reading import prepare_images
 from font_pilot import apply_pilot
-from site_build import can_increment, save_receipt
+from site_build import can_increment, save_receipt, version_rendered_pages
 from notion_sync import read_json, valid_slug, source_config, MARKER, BATCH, SyncError
 
 
@@ -224,6 +224,7 @@ def main():
     config = read_json("config.json")
     prepare_images(config["homeUrl"])
     apply_pilot(config.get("allHead", ""))
+    version_rendered_pages()
     save_receipt()
 
 
