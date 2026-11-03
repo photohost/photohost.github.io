@@ -34,7 +34,7 @@
   "renderer": {
     "scripts/build_gmeek.py": "ae059aba812e88fd5f4038e55ec510b90b8d88c491d99deb284b5036cdc26bd6",
     "scripts/image_reading.py": "56292d3aff8c36c7494290d39eb263d8249f82da3b3eddb6d9b95e1e6a0325a6",
-    "scripts/notion_sync.py": "f8a8b01f5770d77d871eeafd8781a3ac1bb34b5d4b6487c19ce31fab782ee323",
+    "scripts/notion_sync.py": "93da26a300e9e3497152c2a4f2526f5a2df3988f0ea633c5e8d7c4ea70836809",
     "scripts/site_build.py": "70c943433e0a04eb9b47eece4d0d68e4f4d5eb901671a0ca17d2d1eeb4e45339",
     "scripts/sync_notion.py": "b13ad4e5f3cacbcf71f56ea8b5399d0cab9ab944a2981a623095dd7c8b4bc991"
   },
