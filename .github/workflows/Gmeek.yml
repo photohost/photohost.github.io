@@ -12,6 +12,10 @@ on:
         type: choice
         default: build
         options: [build, notion-preview, notion-publish]
+      preview_page:
+        description: "預覽專用。貼上 blog 資料庫中的 Notion 文章連結或頁面 ID"
+        type: string
+        required: false
       source:
         description: "發布觸發來源（Webhook 自動填入）"
         type: choice
@@ -69,7 +73,7 @@ jobs:
         run: python -m pip install -r scripts/requirements-notion.txt
       - name: Process Notion publication commands
         id: sync
-        if: startsWith(steps.mode.outputs.mode, 'notion-')
+        if: steps.mode.outputs.mode == 'notion-publish'
         continue-on-error: true
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
@@ -77,13 +81,27 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SYNC_MODE: ${{ steps.mode.outputs.mode }}
         run: python scripts/sync_notion.py "${SYNC_MODE#notion-}"
+      - name: Render and encrypt private preview
+        if: steps.mode.outputs.mode == 'notion-preview'
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTION_PREVIEW_PASSWORD: ${{ secrets.NOTION_PREVIEW_PASSWORD }}
+          PREVIEW_PAGE: ${{ inputs.preview_page }}
+        run: |
+          if [ "${#NOTION_PREVIEW_PASSWORD}" -lt 20 ]; then
+            echo "請先在 Repository secrets 設定至少 20 字元的 NOTION_PREVIEW_PASSWORD"
+            exit 1
+          fi
+          python scripts/preview_notion.py
+          node scripts/encrypt_preview.mjs
       - name: Save preview for review
-        if: steps.mode.outputs.mode == 'notion-preview' && steps.sync.outcome == 'success'
+        if: steps.mode.outputs.mode == 'notion-preview'
         uses: actions/upload-artifact@v4
         with:
           name: notion-preview
-          path: work/notion-preview/
-          if-no-files-found: ignore
+          path: work/notion-preview-encrypted/index.html
+          if-no-files-found: error
           retention-days: 7
       - name: Preserve mappings and images before building
         if: steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true'
