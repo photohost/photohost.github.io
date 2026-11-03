@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import sys
@@ -57,21 +58,69 @@ def compatible(previous, current):
             previous.get("renderer") == current["renderer"] and site_exists())
 
 
-def head_updates(previous, current):
-    old, new = previous["allHead"], current["allHead"]
+# Match root-relative URLs in the configured script and stylesheet tags only.
+ASSET_URL = re.compile(r"""(<(?:script|link)\b[^>]*?\s(?:src|href)=)(["'])(/[^"']+)\2""")
+
+
+def version_assets(fragment, assets):
+    def replace(match):
+        prefix, quote, url = match.groups()
+        resource, anchor, fragment_id = url.partition("#")
+        path, _, query = resource.partition("?")
+        digest = assets.get(path[1:])
+        if not digest or Path(path).suffix.lower() not in (".js", ".css"):
+            return match[0]
+        params = [part for part in re.split(r"&(?:amp;)?", query)
+                  if part and part.split("=", 1)[0] != "v"]
+        params.append("v=" + digest[:16])
+        url = path + "?" + "&amp;".join(params) + anchor + fragment_id
+        return prefix + quote + url + quote
+
+    return ASSET_URL.sub(replace, fragment)
+
+
+def html_updates(previous, current, rendered=False):
+    old_raw, new_raw = previous["allHead"], current["allHead"]
+    old = version_assets(old_raw, previous["assets"])
+    new = version_assets(new_raw, current["assets"])
+    script = current["config"].get("script", "")
+    old_script = version_assets(script, previous["assets"])
+    new_script = version_assets(script, current["assets"])
     updates = {}
-    if old == new:
+    refresh_head = old != new or (rendered and new_raw != new)
+    if not refresh_head and old_script == new_script and not rendered:
         return updates
-    if not old:
+    if refresh_head and not old_raw:
         raise ValueError("No previous shared head to replace")
     for path in Path("docs").rglob("*.html"):
         html = path.read_text(encoding="utf-8")
-        head, separator, body = html.partition("</head>")
-        previous_head = old if head.count(old) == 1 else font_head(path, html, old)
-        if not separator or head.count(previous_head) != 1:
-            raise ValueError(f"Cannot safely refresh shared head in {path}")
-        updates[path] = head.replace(previous_head, font_head(path, html, new), 1) + separator + body
+        updated = html
+        if refresh_head:
+            head, separator, body = html.partition("</head>")
+            candidates = (old, font_head(path, html, old))
+            if rendered:
+                candidates += (old_raw, font_head(path, html, old_raw))
+            previous_head = next((item for item in candidates if head.count(item) == 1), None)
+            if not separator or previous_head is None:
+                raise ValueError(f"Cannot safely refresh shared head in {path}")
+            updated = head.replace(previous_head, font_head(path, html, new), 1) + separator + body
+        if old_script != new_script or (rendered and script != new_script):
+            candidates = (old_script, script) if rendered else (old_script,)
+            # Gmeek places the configured footer script immediately before </html>.
+            for candidate in candidates:
+                updated, count = re.subn(re.escape(candidate) + r"(?=\s*</html>\s*$)",
+                                         lambda _: new_script, updated, count=1)
+                if count:
+                    break
+        if updated != html:
+            updates[path] = updated
     return updates
+
+
+def version_rendered_pages():
+    current = snapshot()
+    for path, html in html_updates(current, current, rendered=True).items():
+        path.write_text(html, encoding="utf-8")
 
 
 def can_refresh():
@@ -83,7 +132,7 @@ def can_refresh():
     if any(Path(path).suffix.lower() not in (".js", ".css") for path in changed):
         return False
     try:
-        head_updates(previous, current)
+        html_updates(previous, current)
     except ValueError:
         return False
     return True
@@ -93,7 +142,9 @@ def can_increment(copy_assets=False):
     previous, current = baseline(), snapshot()
     # An incremental article build must not certify stale site-wide settings.
     return (compatible(previous, current) and previous["allHead"] == current["allHead"] and
-            (previous["assets"].keys() <= current["assets"].keys() if copy_assets
+            ((previous["assets"].keys() <= current["assets"].keys() and
+              all(previous["assets"].get(path) == digest for path, digest in current["assets"].items()
+                  if Path(path).suffix.lower() in (".js", ".css"))) if copy_assets
              else previous["assets"] == current["assets"]))
 
 
@@ -105,7 +156,7 @@ def refresh():
     if not can_refresh():
         raise ValueError("Site inputs changed; use a full build")
     previous, current = baseline(), snapshot()
-    updates = head_updates(previous, current)  # Validate every page before writing.
+    updates = html_updates(previous, current)  # Validate every page before writing.
     for name in previous["assets"].keys() - current["assets"].keys():
         target = Path("docs") / name
         target.resolve().relative_to(Path("docs").resolve())
@@ -118,7 +169,7 @@ def refresh():
     index["allHead"] = current["allHead"]
     write_json("blogBase.json", index)
     save_receipt()
-    print(f"Static resource refresh complete; updated {len(updates)} HTML heads; article rendering skipped")
+    print(f"Static resource refresh complete; updated {len(updates)} HTML pages; article rendering skipped")
 
 
 def choose():

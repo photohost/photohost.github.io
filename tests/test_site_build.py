@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -7,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from site_build import can_increment, can_refresh, choose, refresh, save_receipt
+from site_build import can_increment, can_refresh, choose, refresh, save_receipt, version_rendered_pages
 
 
 class SiteBuildTests(unittest.TestCase):
@@ -32,6 +33,7 @@ class SiteBuildTests(unittest.TestCase):
                                     "postListJson": {"P1": {"htmlDir": "docs/post/old.html"},
                                                      "P2": {"htmlDir": "docs/post/new.html"}},
                                     "singeListJson": {}})
+        version_rendered_pages()
         save_receipt()
 
     def cleanup(self):
@@ -55,12 +57,31 @@ class SiteBuildTests(unittest.TestCase):
         for path in Path("docs").rglob("*.html"):
             content = path.read_text()
             self.assertIn(self.body, content)
-            self.assertIn("reader.js?v=2", content)
+            self.assertIn("reader.js?v=" + hashlib.sha256(b"new script").hexdigest()[:16], content)
             self.assertNotIn("reader.js?v=1", content)
         self.assertEqual(len(json.loads(Path("blogBase.json").read_text())["postListJson"]), 2)
         snapshot = {str(p): p.read_bytes() for p in Path("docs").rglob("*") if p.is_file()}
         refresh()
         self.assertEqual(snapshot, {str(p): p.read_bytes() for p in Path("docs").rglob("*") if p.is_file()})
+
+    def test_asset_only_refresh_updates_head_and_footer(self):
+        path = Path("docs/index.html")
+        self.config["script"] = "<script src='/reader.js?mode=test&amp;v=old#fragment'></script>"
+        self.write("config.json", self.config)
+        path.write_text(path.read_text().replace("</html>", self.config["script"] + "</html>"))
+        version_rendered_pages()
+        save_receipt()
+        old_version = hashlib.sha256(b"old script").hexdigest()[:16]
+        self.assertEqual(path.read_text().count("v=" + old_version), 2)
+        Path("static/reader.js").write_text("new script")
+        self.assertFalse(can_increment(copy_assets=True))
+        self.assertTrue(can_refresh())
+        refresh()
+        new_version = hashlib.sha256(b"new script").hexdigest()[:16]
+        html = path.read_text()
+        self.assertEqual(html.count("v=" + new_version), 2)
+        self.assertIn("mode=test&amp;v=" + new_version + "#fragment", html)
+        self.assertNotIn(old_version, html)
 
     def test_initial_or_incomplete_site_requires_full_build(self):
         Path(".gmeek-build.json").unlink()
@@ -88,7 +109,8 @@ class SiteBuildTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             refresh()
         self.assertEqual(Path("docs/reader.js").read_text(), "old script")
-        self.assertIn("reader.js?v=1", Path("docs/index.html").read_text())
+        self.assertIn("reader.js?v=" + hashlib.sha256(b"old script").hexdigest()[:16],
+                      Path("docs/index.html").read_text())
 
     def test_resource_removal_does_not_delete_generated_pages(self):
         Path("static/reader.js").unlink()
