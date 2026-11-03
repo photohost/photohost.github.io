@@ -1,5 +1,7 @@
 """Run upstream Gmeek with stable filenames for Notion-managed Issues."""
 import ast
+from datetime import datetime
+from html import escape
 import json
 import os
 import re
@@ -9,6 +11,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import quote
 
 from notion_sync import read_json, valid_slug, source_config, MARKER, BATCH, SyncError
 
@@ -158,6 +161,43 @@ def adapted_tree(source):
     return ast.fix_missing_locations(tree)
 
 
+def add_article_metadata(index, state, batch):
+    published = {int(page["issue"]): page.get("published_at")
+                 for page in state.get("pages", {}).values() if page.get("issue")}
+    published.update({int(item["issue"]): item["published_at"]
+                      for item in batch if item.get("published_at")})
+    colors = index["labelColorDict"]
+
+    def badge(text, color, href=None):
+        if not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
+            color = "#595959"
+        text = escape(text)
+        if href:
+            text = f'<a href="{href}">{text}</a>'
+        return f'<span class="Label" style="background-color:{color}">{text}</span>'
+
+    for key, post in index["postListJson"].items():
+        path = Path("docs/post") / Path(post["htmlDir"]).name
+        if not path.is_file():
+            continue
+        date = post["createdDate"]
+        timestamp = published.get(int(key.removeprefix("P")))
+        if timestamp:
+            date = datetime.fromisoformat(timestamp).strftime("%Y-%m-%d %H:%M")
+        badges = [badge(date, post["dateLabelColor"])]
+        badges.extend(badge(label, colors.get(label, "#595959"), "/tag.html#" + quote(label, safe=""))
+                      for label in post["labels"])
+        metadata = '<div class="article-meta" aria-label="發布時間與標籤">' + "".join(badges) + '</div>'
+        original = path.read_text(encoding="utf-8")
+        html = re.sub(r'<div class="article-meta"[^>]*>.*?</div>\n    ', "", original, count=1)
+        anchor = '<div id="content">'
+        if anchor not in html:
+            raise SyncError(f"Article metadata insertion point missing: {path.name}")
+        updated = html.replace(anchor, metadata + "\n    " + anchor, 1)
+        if original != updated:
+            path.write_text(updated, encoding="utf-8")
+
+
 def main():
     source_path = Path(sys.argv[1]).resolve()
     state = read_json(".notion-sync/state.json", {"pages": {}})
@@ -170,6 +210,7 @@ def main():
     namespace = {"__name__": "__main__", "__file__": str(source_path),
                  "_install_fixed_slugs": lambda cls: install_adapter(cls, state, batch)}
     exec(compile(tree, str(source_path), "exec"), namespace)
+    add_article_metadata(read_json("blogBase.json"), state, batch or [])
 
 
 if __name__ == "__main__":
