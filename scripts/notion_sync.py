@@ -787,7 +787,7 @@ class Sync:
                 if succeeded:
                     self.record_deployment(item)
                 continue
-            props = {self.p["result"]: self.progress_property(f"{failure_stage}失敗。保留 {status}，系統會重試")}
+            props = {self.p["result"]: self.progress_property(f"{failure_stage}失敗。保持 {status}，系統會重試")}
             if succeeded:
                 props = {self.p["result"]: text_property("已從網站下架並刪除 GitHub Issue" if deleting else "已成功發布至網站"),
                          self.p["published"]: {"checkbox": not deleting},
