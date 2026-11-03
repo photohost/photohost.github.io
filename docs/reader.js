@@ -39,8 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
         #image-viewer .viewer-zoom { font-size: 13px; min-width: 4em; text-align: center; }
         @media(min-width:1280px) {
             .has-article-toc #content #reader-nav { grid-row: 1; }
-            .has-article-toc #content:has(> #reader-nav) #postBody { grid-row: 2; }
-            .article-meta > #reader-nav { margin: 0 0 0 auto; }
+            .has-article-toc #content #postBody { grid-row: 2; }
             .has-article-toc #content #article-toc { grid-row: 1 / span 3; }
         }
         @media(max-width:600px) {
@@ -65,14 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     end.id = 'article-reading-end';
     body.after(end);
     button('↓ 前往文末', () => end.scrollIntoView({block: 'end', behavior: behavior()}));
-    const metadata = document.querySelector('.article-meta');
-    const wideArticle = matchMedia('(min-width: 1280px)');
-    function placeReaderNav() {
-        if (metadata && wideArticle.matches) metadata.append(nav);
-        else body.before(nav);
-    }
-    placeReaderNav();
-    wideArticle.addEventListener('change', placeReaderNav);
+    body.before(nav);
     // Also available beside a wide-screen TOC while reading long articles.
     const toc = document.querySelector('#article-toc');
     if (toc) toc.append(nav.cloneNode(false));
