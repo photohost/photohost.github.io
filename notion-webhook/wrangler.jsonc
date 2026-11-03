@@ -6,9 +6,12 @@
 	"no_bundle": true,
 	"find_additional_modules": true,
 	"build": { "command": "npm run build" },
-	"rules": [{ "type": "ESModule", "globs": ["publisher.js"], "fallthrough": false }],
+	"rules": [{ "type": "ESModule", "globs": ["publisher.js", "queue.js"], "fallthrough": false }],
 	"compatibility_date": "2026-10-25",
+	"durable_objects": { "bindings": [{ "name": "PUBLICATION_QUEUE", "class_name": "PublicationQueue" }] },
+	"migrations": [{ "tag": "v1-publication-queue", "new_sqlite_classes": ["PublicationQueue"] }],
 	"workers_dev": true,
 	"preview_urls": false,
 	"observability": { "enabled": true }
 }
+

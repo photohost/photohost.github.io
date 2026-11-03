@@ -834,8 +834,8 @@ def main():
         sync.finalize(args.command == "finalize-success")
         return
     write_json(BATCH, [])
-    pages = sync.publish_pages()
-    print(f"Found {len(pages)} article(s) with publication commands")
+    pages = [page for page in sync.publish_pages() if sync.requested(page)]
+    print(f"Found {len(pages)} article(s) requiring publication work")
     if not pages:
         output("has_articles", "false")
         return
@@ -867,6 +867,7 @@ if __name__ == "__main__":
     except SyncError as exc:
         print("Sync stopped: " + str(exc), file=sys.stderr)
         sys.exit(1)
+
 
 
 

@@ -56,7 +56,7 @@ delete 會刪除 Issue 及其討論，無法在 GitHub 還原。Git 先前的提
 
 ## Cloudflare 接收服務
 
-使用 Cloudflare Workers Free 即可，不需要升級 Notion。每次執行只驗證通知並呼叫 GitHub；未設定排程、資料庫或付費服務。
+接收服務使用 SQLite Durable Object 保存待處理通知與事件去重紀錄。第一筆通知安排 20 秒後檢查，同一期間的通知合併成一次同步；同一事件 ID 保留 48 小時供重送去重。這個儲存物件透過 wrangler.jsonc 的 binding 與 migration 建立。
 
 1. 安裝 Node.js 22+，在此目錄執行 `npm ci`、`npm run check`、`npm test`。
 2. 執行 `npx wrangler login --device --browser=false --scopes account:read user:read workers_scripts:write workers_tail:read`，開啟顯示的網址並核准配對碼。
@@ -71,13 +71,18 @@ delete 會刪除 Issue 及其討論，無法在 GitHub 還原。Git 先前的提
 
 根目錄 `/health` 只回報服務存在；不能用它判斷 Notion 訂閱或 GitHub 權杖是否已設定完成。
 
-接收端只接受此工作區、此 blog 資料庫的人員操作；程式的 bot 回寫不會形成循環。GitHub 接受觸發後才回覆 HTTP 200；失敗回覆 503，讓 Notion 重試。Webhook 不保證瞬間送達，原 GitHub 排程保留作為備援。
+接收端只接受此工作區、此 blog 資料庫的人員操作；程式的 bot 回寫不會形成循環。通知持久化並安排喚醒成功後回覆 HTTP 200，保存失敗回覆 503，讓 Notion 重試。GitHub 有執行或排隊中的 Gmeek 工作時，通知留在接收端，每 60 秒重新檢查。派送失敗以 30 秒至 5 分鐘退避重試，派送成功後保留 60 秒間隔，等待 Actions 清單更新。
+
+通知不包含最新 Status，草稿編輯仍可能合併出一次檢查。同步程式先篩選首次 Published、repost、delete 及待重試文章；沒有待處理命令時，立即結束，不讀取文章區塊或查詢 GitHub Issues。原 GitHub 排程仍負責補查。GitHub 的同一寫入佇列允許最多 100 個待執行工作，避免人工建置取代已排隊的發布。
+
+若 GitHub 接受派送後，接收端在記錄結果前中斷，仍可能再次派送，因此同步程式的重複執行保護繼續適用。Webhook 不保證瞬間送達，20 秒合併視窗也不代表文章會在 20 秒內完成上線。
 
 手動診斷：Actions → build Gmeek → Run workflow → notion-preview（僅預覽）或 notion-publish（執行命令）。
 
 `src/index.ts` 保留原 Notion Workers 介面，只有 Notion Business／Enterprise 工作區才能使用；預設部署入口為 `src/cloudflare.ts` 編譯後的 `dist/cloudflare.js`。
 
 參考：[Notion Webhooks](https://developers.notion.com/reference/webhooks)、[Cloudflare Workers 方案](https://developers.cloudflare.com/workers/platform/pricing/)、[GitHub 刪除 Issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/administering-issues/deleting-an-issue)。
+
 
 
 

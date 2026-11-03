@@ -85,10 +85,10 @@ test("repeated event in a delivered batch dispatches once", async () => {
 test("GitHub failures throw without leaking response content, and remain retryable", async () => {
 	const seen = new Set()
 	await assert.rejects(handleDelivery(request(payload()), env, async () => new Response("sensitive", { status: 403 }), seen),
-		{ message: "GitHub dispatch returned HTTP 403; Notion will retry" })
+		{ message: "GitHub dispatch returned HTTP 403" })
 	assert.equal(seen.size, 0)
 	await assert.rejects(handleDelivery(request(payload()), env, async () => { throw new Error("sensitive") }),
-		{ message: "GitHub dispatch network failure; Notion will retry" })
+		{ message: "GitHub dispatch network failure" })
 })
 
 test("missing GitHub credential fails clearly without dispatch", async () => {
@@ -110,3 +110,4 @@ test("bootstrap token is encrypted with a local-only private key and cannot disp
 	assert.equal(verifyRequest(req, { ...bootstrapEnv, ...env }).status, 401)
 	assert.equal(verifyRequest(req, {}).status, 401)
 })
+
