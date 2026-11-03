@@ -35,10 +35,14 @@ def install_fixed_slugs(cls, state):
 
 
 def render_markdown(self, markdown):
+    return render_markdown_request(markdown, self.options.github_token)
+
+
+def render_markdown_request(markdown, token):
     """Pace Markdown requests and retry transient failures without logging content."""
     request = urllib.request.Request("https://api.github.com/markdown",
         data=json.dumps({"text": markdown, "mode": "gfm"}).encode(),
-        headers={"Authorization": "Bearer " + self.options.github_token,
+        headers={"Authorization": "Bearer " + token,
                  "Content-Type": "application/json", "User-Agent": "notion-gmeek-build"})
     for attempt in range(4):
         time.sleep(1)  # GitHub recommends spacing sequential POSTs by at least 1s.
