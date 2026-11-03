@@ -6,6 +6,8 @@ from pathlib import Path
 import shutil
 import sys
 
+from font_pilot import font_head
+
 RECEIPT = Path(".gmeek-build.json")
 
 
@@ -65,9 +67,10 @@ def head_updates(previous, current):
     for path in Path("docs").rglob("*.html"):
         html = path.read_text(encoding="utf-8")
         head, separator, body = html.partition("</head>")
-        if not separator or head.count(old) != 1:
+        previous_head = old if head.count(old) == 1 else font_head(path, html, old)
+        if not separator or head.count(previous_head) != 1:
             raise ValueError(f"Cannot safely refresh shared head in {path}")
-        updates[path] = head.replace(old, new, 1) + separator + body
+        updates[path] = head.replace(previous_head, font_head(path, html, new), 1) + separator + body
     return updates
 
 
