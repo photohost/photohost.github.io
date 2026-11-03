@@ -33,7 +33,7 @@
   },
   "renderer": {
     "scripts/build_gmeek.py": "2be1d729c37b03e72e42154c39d2e0a16d16189866455d6088c28040b7b54693",
-    "scripts/notion_sync.py": "f363f566c3ddf837765eababdb47f515cd49374efb6f07b39bf1bb3da0143cc0",
+    "scripts/notion_sync.py": "f8a8b01f5770d77d871eeafd8781a3ac1bb34b5d4b6487c19ce31fab782ee323",
     "scripts/site_build.py": "70c943433e0a04eb9b47eece4d0d68e4f4d5eb901671a0ca17d2d1eeb4e45339",
     "scripts/sync_notion.py": "b13ad4e5f3cacbcf71f56ea8b5399d0cab9ab944a2981a623095dd7c8b4bc991"
   },
