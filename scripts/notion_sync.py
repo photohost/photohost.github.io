@@ -708,7 +708,7 @@ class Sync:
                     "issue": item["issue"], "slug": item["slug"], "deleted": True,
                     "deletion_deployed": False}
                 write_json(STATE, self.state)
-                self.save_batch(item, "GitHub Issue 已刪除，等待網站下架部署")
+                self.save_batch(item, "GitHub Issue 已刪除，等待網站建置")
                 continue
             for label in item["tags"]:
                 if label not in labels:
@@ -727,8 +727,30 @@ class Sync:
             self.state["pages"][pid] = {**self.state["pages"].get(pid, {}),
                                         "issue": item["issue"], "slug": item["slug"]}
             write_json(STATE, self.state)
-            self.save_batch(item, "已同步至 GitHub，等待網站部署")
+            self.save_batch(item, "內容已同步，等待網站建置")
             print(f"Synced Issue #{item['issue']}; awaiting deployment")
+
+    def progress_property(self, message):
+        value = text_property(message)
+        run_id = os.environ.get("GITHUB_RUN_ID", "")
+        if run_id.isdecimal():
+            value["rich_text"].append({"text": {"content": " · 查看執行紀錄",
+                "link": {"url": f"https://github.com/{self.repo}/actions/runs/{run_id}"}}})
+        return value
+
+    def mark_deploying(self):
+        batch = read_json(BATCH, [])
+        for item in batch:
+            path = "/pages/" + item["page_id"]
+            page = self.notion.call("GET", path)
+            if (page.get("archived") or page.get("in_trash") or
+                    page["last_edited_time"] != item["revision"] or
+                    status_name(page, self.config) != item["status"]):
+                continue
+            updated = self.notion.call("PATCH", path, {"properties": {
+                self.p["result"]: self.progress_property("網站已建置，等待上線")}})
+            item["revision"] = updated["last_edited_time"]
+            write_json(BATCH, batch)
 
     def save_batch(self, item, message):
         self.batch.append({"page_id": item["page_id"], "issue": item["issue"], "slug": item["slug"],
@@ -739,11 +761,11 @@ class Sync:
         write_json(BATCH, self.batch)
         updated = self.notion.call("PATCH", "/pages/" + item["page_id"], {"properties": {
             self.p["issue"]: {"number": item["issue"]}, self.p["slug"]: text_property(item["slug"]),
-            self.p["result"]: text_property(message)}})
+            self.p["result"]: self.progress_property(message)}})
         self.batch[-1]["revision"] = updated["last_edited_time"]
         write_json(BATCH, self.batch)
 
-    def finalize(self, succeeded):
+    def finalize(self, succeeded, failure_stage="網站部署"):
         for item in read_json(BATCH, []):
             deleting = item.get("action") == "delete"
             status = item.get("status", self.config["publish_status"])
@@ -765,7 +787,7 @@ class Sync:
                 if succeeded:
                     self.record_deployment(item)
                 continue
-            props = {self.p["result"]: text_property(f"網站部署失敗；保持 {status}，系統將自動重試")}
+            props = {self.p["result"]: self.progress_property(f"{failure_stage}失敗。保留 {status}，系統會重試")}
             if succeeded:
                 props = {self.p["result"]: text_property("已從網站下架並刪除 GitHub Issue" if deleting else "已成功發布至網站"),
                          self.p["published"]: {"checkbox": not deleting},
@@ -800,9 +822,9 @@ class Sync:
             if (not latest.get("archived") and not latest.get("in_trash") and
                     latest["last_edited_time"] == page["last_edited_time"] and
                     status_name(latest, self.config) == status_name(page, self.config) and
-                    property_text(latest, self.p["result"]) != result):
+                    property_text(latest, self.p["result"]) != result + (" · 查看執行紀錄" if os.environ.get("GITHUB_RUN_ID", "").isdecimal() else "")):
                 self.notion.call("PATCH", "/pages/" + uuid_text(page["id"]),
-                                 {"properties": {self.p["result"]: text_property(result)}})
+                                 {"properties": {self.p["result"]: self.progress_property(result)}})
 
 
 def output(name, value):
@@ -814,7 +836,7 @@ def output(name, value):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["preview", "publish", "finalize-success", "finalize-failure"])
+    parser.add_argument("command", choices=["preview", "publish", "finalize-success", "finalize-failure", "finalize-build-failure", "mark-deploying"])
     args = parser.parse_args()
     config, site = read_json("notion-sync.json"), read_json("config.json")
     if not os.environ.get("NOTION_TOKEN"):
@@ -830,8 +852,12 @@ def main():
     delete_github = API("https://api.github.com", delete_token,
         {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}) if delete_token else None
     sync = Sync(notion, github, repo, config, site, delete_github=delete_github)
+    if args.command == "mark-deploying":
+        sync.mark_deploying()
+        return
     if args.command.startswith("finalize-"):
-        sync.finalize(args.command == "finalize-success")
+        stage = "網站建置" if args.command == "finalize-build-failure" else "網站部署"
+        sync.finalize(args.command == "finalize-success", stage)
         return
     write_json(BATCH, [])
     pages = [page for page in sync.publish_pages() if sync.requested(page)]

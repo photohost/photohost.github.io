@@ -96,13 +96,6 @@ jobs:
             git commit -m "Save Notion article mappings and images"
             git push
           fi
-      - name: Save deployment receipt
-        if: always() && steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: notion-batch
-          path: work/notion-batch.json
-          retention-days: 7
       - name: Set up Pages
         if: steps.mode.outputs.build == 'true' || (steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true')
         uses: actions/configure-pages@v4
@@ -136,6 +129,20 @@ jobs:
             git commit -m "Update site from Gmeek"
             git push
           fi
+      - name: Report site ready to deploy
+        if: steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true'
+        continue-on-error: true
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/sync_notion.py mark-deploying
+      - name: Save deployment receipt
+        if: always() && steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: notion-batch
+          path: work/notion-batch.json
+          retention-days: 7
       - name: Upload site
         if: steps.mode.outputs.build == 'true' || (steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true')
         uses: actions/upload-pages-artifact@v3
@@ -178,10 +185,15 @@ jobs:
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUILD_RESULT: ${{ needs.build.result }}
           DEPLOY_RESULT: ${{ needs.deploy.result }}
         run: |
           result=failure
-          if [ "$DEPLOY_RESULT" = "success" ]; then result=success; fi
+          if [ "$DEPLOY_RESULT" = "success" ]; then
+            result=success
+          elif [ "$BUILD_RESULT" = "failure" ]; then
+            result=build-failure
+          fi
           python scripts/sync_notion.py "finalize-$result"
       - name: Preserve successful deployment receipts
         if: always()
