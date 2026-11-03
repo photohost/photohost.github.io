@@ -302,11 +302,12 @@ class Renderer:
             if not cursor:
                 raise SyncError("Incomplete Notion block pagination")
 
-    def render(self, blocks, depth=0):
+    def render(self, blocks, depth=0, parent_location=()):
         if depth > 20:
             raise SyncError("Article exceeds 20 nested block levels")
         out = []
-        for block in blocks:
+        for index, block in enumerate(blocks, 1):
+            location = (*parent_location, index)
             self.visits += 1
             if self.visits > 2000:
                 raise SyncError("Article exceeds 2000 blocks")
@@ -315,7 +316,7 @@ class Renderer:
             text = rich(data.get("rich_text", []))
             nested = ""
             if block.get("has_children") and kind != "table":
-                nested = self.render(self.children(block["id"]), depth + 1)
+                nested = self.render(self.children(block["id"]), depth + 1, location)
             if kind == "paragraph":
                 value = text + ("\n\n" + nested if nested else "")
             elif kind in ("heading_1", "heading_2", "heading_3"):
@@ -338,7 +339,11 @@ class Renderer:
             elif kind == "divider":
                 value = "---"
             elif kind in ("image", "file", "pdf", "video", "audio"):
-                url = self.assets.resolve(data)
+                try:
+                    url = self.assets.resolve(data)
+                except SyncError as exc:
+                    position = ".".join(map(str, location))
+                    raise SyncError(f"區塊 {position}（{kind}）：{exc}") from exc
                 caption = rich(data.get("caption", []))
                 label = escape(plain(data.get("caption", [])) or data.get("name", kind))
                 value = ("!" if kind == "image" else "") + f"[{label}]({url})"
@@ -364,7 +369,8 @@ class Renderer:
             elif kind == "table_of_contents":
                 continue  # The existing site theme generates its own TOC.
             else:
-                raise SyncError(f"Unsupported Notion block: {kind}; convert it before publishing")
+                position = ".".join(map(str, location))
+                raise SyncError(f"Unsupported Notion block: {kind}; convert it before publishing（區塊 {position}）")
             out.append(value)
         return "\n\n".join(out).strip()
 
@@ -508,7 +514,7 @@ class Sync:
             if not cursor:
                 raise SyncError("Incomplete Notion page pagination")
 
-    def prepare(self, pages, preview):
+    def prepare(self, pages, preview, errors=None):
         issues = [x for x in self.github.pages(f"/repos/{self.repo}/issues?state=all") if "pull_request" not in x]
         by_number = {x["number"]: x for x in issues}
         by_marker = {}
@@ -524,108 +530,114 @@ class Sync:
         prepared, linked = [], set()
         assets = Assets(self.site["homeUrl"], preview)
         for page in pages:
-            pid = uuid_text(page["id"])
-            entry = self.state["pages"].get(pid, {})
-            status = status_name(page, self.config)
-            if not self.requested(page):
-                # Do not even read blocks or copy draft attachments after publication.
-                prepared.append({"page_id": pid, "action": "noop", "needs_sync": False,
-                                 "title": "", "body": "", "tags": [], "file_title": pid,
-                                 "issue": entry.get("issue", 0), "slug": entry.get("slug", "")})
-                continue
-            if status == self.delete_status:
-                prepared.append(self.prepare_delete(page, entry, by_number, by_marker))
-                continue
-            if entry.get("deleted"):
-                raise SyncError("此文章的 Issue 已刪除；請複製成新的 Notion 文章後再發布")
-            title = property_text(page, self.p["title"]).strip()
-            if not title or len(title) > 200 or "\n" in title or "\r" in title:
-                raise SyncError(f"Published page {pid} requires a title of 1–200 characters on one line")
-            number = page["properties"][self.p["issue"]].get("number")
-            entry = self.state["pages"].get(pid, {})
-            old_number = entry.get("issue")
-            if number is not None and (number != int(number) or number < 1):
-                raise SyncError("Issue number must be a positive integer")
-            if number and old_number and number != old_number:
-                raise SyncError("An existing page cannot be reassigned to a different Issue")
-            number = int(number or old_number or by_marker.get(pid, {}).get("number", 0))
-            issue = by_number.get(number) if number else None
-            if number and (not issue or issue["state"] != "open"):
-                raise SyncError(f"Issue #{number} does not exist or is closed; reopen it explicitly to update")
-            if issue:
-                markers = MARKER.findall(issue.get("body") or "")
-                if markers and markers != [pid]:
-                    raise SyncError(f"Issue #{number} belongs to a different Notion page")
-                if by_marker.get(pid, {}).get("number", number) != number or number in linked:
-                    raise SyncError("Conflicting page-to-Issue mapping")
-                linked.add(number)
-            tags = [t["name"] for t in page["properties"][self.p["tags"]]["multi_select"]]
-            if not tags or any(t in self.site.get("singlePage", []) for t in tags):
-                raise SyncError(f"{title}: select at least one article tag; single-page labels are not supported")
-            slug = entry.get("slug")
-            post = self.blog.get("postListJson", {}).get("P" + str(number))
-            if not slug and post:
-                slug = existing_slug(post)
-            if not slug and issue:
-                slug = source_config(issue.get("body")).get("notion_slug")
-            requested = property_text(page, self.p["slug"]).strip()
-            if slug and requested and slug != requested:
-                raise SyncError(f"{title}: keep the existing Slug {slug}; changing URLs requires a migration")
-            # Notion page IDs can share their first 12 digits. Use the whole ID
-            # for new URLs, while keeping every previously assigned URL above.
-            slug = valid_slug(slug or requested or "notion-" + pid.replace("-", ""))
-            key = slug_key(slug)
-            if key in occupied and (not number or occupied[key] != number):
-                raise SyncError(f"{title}: Slug is already used by another article")
-            occupied[key] = number or pid
-            # Gmeek's Markdown backup uses the sanitized title, even with a fixed URL.
-            file_title = re.sub(r'[<>:/\\|?*"\x00-\x1f]', '-', title).casefold()
-            for other in issues:
-                other_title = re.sub(r'[<>:/\\|?*"\x00-\x1f]', '-', other["title"]).casefold()
-                if other["state"] == "open" and other["number"] != number and other_title == file_title:
-                    raise SyncError(f"{title}: another open Issue has the same backup filename")
-            if any(x["file_title"] == file_title for x in prepared):
-                raise SyncError("Two Published articles have the same backup filename")
-            renderer = Renderer(self.notion, assets)
-            blocks, site_timestamp = extract_site_timestamp(renderer.children(pid), self.site)
-            markdown = renderer.render(blocks)
-            if not markdown.strip():
-                raise SyncError(f"{title}: article body is empty")
-            meta = source_config(issue.get("body")) if issue else {}
-            # Keep enough metadata in the Issue to recover its URL even if the
-            # response or the following state-file commit is interrupted.
-            meta["notion_slug"] = slug
-            # Track the override separately so removing it is also a new export.
-            if site_timestamp is None:
-                meta.pop("notion_timestamp_override", None)
-            else:
-                meta["notion_timestamp_override"] = site_timestamp
-                meta["timestamp"] = site_timestamp
-            old_digest = article_digest(issue["title"], issue.get("body"), issue["labels"]) if issue else None
-            # A failed deployment retries the same publication time and Issue.
-            # A new repost (even with unchanged text) receives a fresh time.
-            retry = (meta.get("notion_published_at") and old_digest != entry.get("deployed_fingerprint") and
-                     article_digest(title, article_body(markdown, pid, meta), tags) == old_digest)
-            if not retry:
-                timestamp = publication_time(self.site)
-                meta["timestamp"] = site_timestamp if site_timestamp is not None else int(timestamp.timestamp())
-                meta["notion_published_at"] = timestamp.isoformat()
-            body = article_body(markdown, pid, meta)
-            if len(body.encode("utf-8")) > 60000:
-                raise SyncError(f"{title}: article is too long for one GitHub Issue")
-            latest = self.notion.call("GET", "/pages/" + pid)
-            if (latest["last_edited_time"] != page["last_edited_time"] or
-                    status_name(latest, self.config) != status):
-                raise SyncError(f"{title}: content changed during export; rerun")
-            fingerprint = article_digest(title, body, tags)
-            issue_matches = issue and article_digest(issue["title"], issue.get("body"), issue["labels"]) == fingerprint
-            prepared.append({"page_id": pid, "action": "publish", "status": status,
-                             "title": title, "file_title": file_title,
-                             "body": body, "tags": tags, "slug": slug, "issue": number,
-                             "old_issue": issue, "revision": latest["last_edited_time"],
-                             "published_at": meta["notion_published_at"],
-                             "fingerprint": fingerprint,
-                             "needs_sync": status == self.repost_status or not issue_matches or entry.get("deployed_fingerprint") != fingerprint})
+            try:
+                pid = uuid_text(page["id"])
+                entry = self.state["pages"].get(pid, {})
+                status = status_name(page, self.config)
+                if not self.requested(page):
+                    # Do not even read blocks or copy draft attachments after publication.
+                    prepared.append({"page_id": pid, "action": "noop", "needs_sync": False,
+                                     "title": "", "body": "", "tags": [], "file_title": pid,
+                                     "issue": entry.get("issue", 0), "slug": entry.get("slug", "")})
+                    continue
+                if status == self.delete_status:
+                    prepared.append(self.prepare_delete(page, entry, by_number, by_marker))
+                    continue
+                if entry.get("deleted"):
+                    raise SyncError("此文章的 Issue 已刪除；請複製成新的 Notion 文章後再發布")
+                title = property_text(page, self.p["title"]).strip()
+                if not title or len(title) > 200 or "\n" in title or "\r" in title:
+                    raise SyncError(f"Published page {pid} requires a title of 1–200 characters on one line")
+                number = page["properties"][self.p["issue"]].get("number")
+                entry = self.state["pages"].get(pid, {})
+                old_number = entry.get("issue")
+                if number is not None and (number != int(number) or number < 1):
+                    raise SyncError("Issue number must be a positive integer")
+                if number and old_number and number != old_number:
+                    raise SyncError("An existing page cannot be reassigned to a different Issue")
+                number = int(number or old_number or by_marker.get(pid, {}).get("number", 0))
+                issue = by_number.get(number) if number else None
+                if number and (not issue or issue["state"] != "open"):
+                    raise SyncError(f"Issue #{number} does not exist or is closed; reopen it explicitly to update")
+                if issue:
+                    markers = MARKER.findall(issue.get("body") or "")
+                    if markers and markers != [pid]:
+                        raise SyncError(f"Issue #{number} belongs to a different Notion page")
+                    if by_marker.get(pid, {}).get("number", number) != number or number in linked:
+                        raise SyncError("Conflicting page-to-Issue mapping")
+                tags = [t["name"] for t in page["properties"][self.p["tags"]]["multi_select"]]
+                if not tags or any(t in self.site.get("singlePage", []) for t in tags):
+                    raise SyncError(f"{title}: select at least one article tag; single-page labels are not supported")
+                slug = entry.get("slug")
+                post = self.blog.get("postListJson", {}).get("P" + str(number))
+                if not slug and post:
+                    slug = existing_slug(post)
+                if not slug and issue:
+                    slug = source_config(issue.get("body")).get("notion_slug")
+                requested = property_text(page, self.p["slug"]).strip()
+                if slug and requested and slug != requested:
+                    raise SyncError(f"{title}: keep the existing Slug {slug}; changing URLs requires a migration")
+                # Notion page IDs can share their first 12 digits. Use the whole ID
+                # for new URLs, while keeping every previously assigned URL above.
+                slug = valid_slug(slug or requested or "notion-" + pid.replace("-", ""))
+                key = slug_key(slug)
+                if key in occupied and (not number or occupied[key] != number):
+                    raise SyncError(f"{title}: Slug is already used by another article")
+                # Gmeek's Markdown backup uses the sanitized title, even with a fixed URL.
+                file_title = re.sub(r'[<>:/\\|?*"\x00-\x1f]', '-', title).casefold()
+                for other in issues:
+                    other_title = re.sub(r'[<>:/\\|?*"\x00-\x1f]', '-', other["title"]).casefold()
+                    if other["state"] == "open" and other["number"] != number and other_title == file_title:
+                        raise SyncError(f"{title}: another open Issue has the same backup filename")
+                if any(x["file_title"] == file_title for x in prepared):
+                    raise SyncError("Two Published articles have the same backup filename")
+                renderer = Renderer(self.notion, assets)
+                blocks, site_timestamp = extract_site_timestamp(renderer.children(pid), self.site)
+                markdown = renderer.render(blocks)
+                if not markdown.strip():
+                    raise SyncError(f"{title}: article body is empty")
+                meta = source_config(issue.get("body")) if issue else {}
+                # Keep enough metadata in the Issue to recover its URL even if the
+                # response or the following state-file commit is interrupted.
+                meta["notion_slug"] = slug
+                # Track the override separately so removing it is also a new export.
+                if site_timestamp is None:
+                    meta.pop("notion_timestamp_override", None)
+                else:
+                    meta["notion_timestamp_override"] = site_timestamp
+                    meta["timestamp"] = site_timestamp
+                old_digest = article_digest(issue["title"], issue.get("body"), issue["labels"]) if issue else None
+                # A failed deployment retries the same publication time and Issue.
+                # A new repost (even with unchanged text) receives a fresh time.
+                retry = (meta.get("notion_published_at") and old_digest != entry.get("deployed_fingerprint") and
+                         article_digest(title, article_body(markdown, pid, meta), tags) == old_digest)
+                if not retry:
+                    timestamp = publication_time(self.site)
+                    meta["timestamp"] = site_timestamp if site_timestamp is not None else int(timestamp.timestamp())
+                    meta["notion_published_at"] = timestamp.isoformat()
+                body = article_body(markdown, pid, meta)
+                if len(body.encode("utf-8")) > 60000:
+                    raise SyncError(f"{title}: article is too long for one GitHub Issue")
+                latest = self.notion.call("GET", "/pages/" + pid)
+                if (latest["last_edited_time"] != page["last_edited_time"] or
+                        status_name(latest, self.config) != status):
+                    raise SyncError(f"{title}: content changed during export; rerun")
+                fingerprint = article_digest(title, body, tags)
+                issue_matches = issue and article_digest(issue["title"], issue.get("body"), issue["labels"]) == fingerprint
+                prepared.append({"page_id": pid, "action": "publish", "status": status,
+                                 "title": title, "file_title": file_title,
+                                 "body": body, "tags": tags, "slug": slug, "issue": number,
+                                 "old_issue": issue, "revision": latest["last_edited_time"],
+                                 "published_at": meta["notion_published_at"],
+                                 "fingerprint": fingerprint,
+                                 "needs_sync": status == self.repost_status or not issue_matches or entry.get("deployed_fingerprint") != fingerprint})
+                occupied[key] = number or pid
+                if issue:
+                    linked.add(number)
+            except SyncError as exc:
+                if errors is None:
+                    raise
+                errors.append((page, str(exc)))
         return prepared
 
     def prepare_delete(self, page, entry, by_number, by_marker):
@@ -865,8 +877,10 @@ def main():
     if not pages:
         output("has_articles", "false")
         return
+    errors = []
     try:
-        prepared = sync.prepare(pages, preview=args.command == "preview")
+        prepared = sync.prepare(pages, preview=args.command == "preview",
+                                errors=errors if args.command == "publish" else None)
     except SyncError as exc:
         if args.command == "publish":
             sync.report_error(pages, str(exc))
@@ -878,13 +892,22 @@ def main():
         write_json(PREVIEW / "plan.json", [{k: x[k] for k in ("page_id", "action", "title", "issue", "slug", "tags", "needs_sync")} for x in prepared])
         print("Preview generated. GitHub Issues and Notion were not modified.")
         return
+    for page, message in errors:
+        print("Article preflight failed: " + message, flush=True)
+        try:
+            sync.report_error([page], message)
+        except SyncError as exc:
+            print("Could not report article preflight failure: " + str(exc), flush=True)
     try:
         sync.publish(prepared)
     except SyncError as exc:
-        sync.report_error(pages, str(exc))
+        failed_pages = {page["id"] for page, _ in errors}
+        sync.report_error([page for page in pages if page["id"] not in failed_pages], str(exc))
         raise
     finally:
         output("has_articles", "true" if sync.batch else "false")
+    if errors:
+        raise SyncError(f"{len(errors)} article(s) failed preflight")
 
 
 if __name__ == "__main__":

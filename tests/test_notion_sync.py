@@ -133,6 +133,30 @@ class SyncTests(unittest.TestCase):
             ns.main()
         return output
 
+    def test_invalid_article_does_not_block_other_publications(self):
+        invalid = copy.deepcopy(self.notion.page)
+        invalid_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+        invalid["id"] = invalid_id
+        original_call = self.notion.call
+        def call(method, path, data=None):
+            if path.endswith("/query"):
+                return {"results": [copy.deepcopy(invalid), copy.deepcopy(self.notion.page)],
+                        "has_more": False}
+            if path == "/pages/" + invalid_id:
+                if method == "PATCH":
+                    invalid["properties"]["同步結果"].update(data["properties"]["同步結果"])
+                return copy.deepcopy(invalid)
+            if path.startswith("/blocks/" + invalid_id + "/"):
+                return {"results": [{"id": "invalid", "type": "unsupported"}], "has_more": False}
+            return original_call(method, path, data)
+
+        with patch.object(self.notion, "call", side_effect=call):
+            with self.assertRaisesRegex(ns.SyncError, "1 article"):
+                self.run_main("publish")
+        self.assertEqual([item["page_id"] for item in ns.read_json(ns.BATCH)], [PID])
+        self.assertIn("區塊 1", ns.property_text(invalid, "同步結果"))
+        self.assertIn("等待網站建置", ns.property_text(self.notion.page, "同步結果"))
+
     def test_main_skips_idle_publications_and_completed_deletions(self):
         for command in ("publish", "preview"):
             for status, receipt in (("Published", {"deployed_fingerprint": "done"}),
