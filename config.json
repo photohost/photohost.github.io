@@ -28,5 +28,5 @@
     "dayTheme": "light",
     "nightTheme": "github-light",
     "script": "<script src='/article-toc.js?v=20261103mono' defer></script>",
-    "allHead": "<script src='/site-theme.js?v=20261103mono' defer></script><script src='/reader.js?v=20261103mono' defer></script><script src='/starfield.js?v=20261103mono' defer></script><script src='/reading-surfaces.js?v=20261103spacing' defer></script><script src='/title-typewriter.js?v=20261103' defer></script><style>#avatarImg{display:none}.title-left .blogTitle{display:inline!important}</style>"
+    "allHead": "<script src='/site-theme.js?v=20261103mono' defer></script><script src='/reader.js?v=20261103mono' defer></script><script src='/starfield.js?v=20261103mono' defer></script><script src='/reading-surfaces.js?v=20261103spacing' defer></script><script src='/title-typewriter.js?v=2ce6e92' defer></script><style>#avatarImg{display:none}.title-left .blogTitle{display:inline!important}</style>"
 }
