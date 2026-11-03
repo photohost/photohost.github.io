@@ -57,7 +57,9 @@
     },
     "40d40a03-f4e8-80ef-9a81-f0d1392e8f13": {
       "issue": 233,
-      "slug": "notion-40d40a03f4e880ef9a81f0d1392e8f13"
+      "slug": "notion-40d40a03f4e880ef9a81f0d1392e8f13",
+      "deployed_fingerprint": "03fe03b7da72efc9ccf092fd2708cf94b047114d9a683fefd75282c2e1defc6f",
+      "published_at": "2026-11-03T23:44:37+08:00"
     }
   }
 }
