@@ -4,7 +4,7 @@ run-name: ${{ inputs.source == 'notion-webhook' && 'Notion 自動發布' || 'bui
 on:
   push:
     branches: [main]
-    paths: ['config.json', 'static/site-theme.js', 'static/article-toc.js', 'static/reader.js', 'static/starfield.js', 'static/reading-surfaces.js', 'static/title-typewriter.js']
+    paths: ['config.json', 'static/**/*.js', 'static/**/*.css', 'scripts/**', '.github/workflows/Gmeek.yml']
   workflow_dispatch:
     inputs:
       mode:
@@ -62,23 +62,13 @@ jobs:
           INPUT_MODE: ${{ inputs.mode }}
           EVENT: ${{ github.event_name }}
           EVENT_SCHEDULE: ${{ github.event.schedule }}
-        run: |
-          mode="${INPUT_MODE:-build}"
-          if [ "$EVENT" = "schedule" ] && [ "$EVENT_SCHEDULE" != "0 16 * * *" ]; then
-            mode="notion-publish"
-          fi
-          case "$mode" in
-            build|notion-preview|notion-publish) ;;
-            *) exit 1 ;;
-          esac
-          echo "mode=$mode" >> "$GITHUB_OUTPUT"
-          if [ "$mode" = "build" ]; then echo "build=true" >> "$GITHUB_OUTPUT"; fi
+        run: python scripts/site_build.py choose
       - name: Install Notion image support
-        if: steps.mode.outputs.mode != 'build'
+        if: startsWith(steps.mode.outputs.mode, 'notion-')
         run: python -m pip install -r scripts/requirements-notion.txt
       - name: Process Notion publication commands
         id: sync
-        if: steps.mode.outputs.mode != 'build'
+        if: startsWith(steps.mode.outputs.mode, 'notion-')
         continue-on-error: true
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
@@ -116,7 +106,7 @@ jobs:
         if: steps.mode.outputs.build == 'true' || (steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true')
         uses: actions/configure-pages@v4
       - name: Get Gmeek source and dependencies
-        if: steps.mode.outputs.build == 'true' || (steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true')
+        if: steps.mode.outputs.mode == 'build' || (steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true')
         run: |
           git clone https://github.com/Meekdai/Gmeek.git "$RUNNER_TEMP/Gmeek"
           version=$(python -c "import json; print(json.load(open('config.json'))['GMEEK_VERSION'])")
@@ -126,18 +116,21 @@ jobs:
           git -C "$RUNNER_TEMP/Gmeek" checkout "$version"
           python -m pip install -r "$RUNNER_TEMP/Gmeek/requirements.txt"
       - name: Generate HTML
-        if: steps.mode.outputs.build == 'true' || (steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true')
+        if: steps.mode.outputs.mode == 'build' || (steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           SYNC_MODE: ${{ steps.mode.outputs.mode }}
         run: python scripts/build_gmeek.py "$RUNNER_TEMP/Gmeek/Gmeek.py"
+      - name: Refresh frontend resources
+        if: steps.mode.outputs.mode == 'assets'
+        run: python scripts/site_build.py refresh
       - name: Commit generated site
         if: steps.mode.outputs.build == 'true' || (steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true')
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs backup blogBase.json README.md
+          git add docs backup blogBase.json README.md .gmeek-build.json
           if ! git diff --cached --quiet; then
             git commit -m "Update site from Gmeek"
             git push
@@ -204,4 +197,5 @@ jobs:
       - name: Report partial sync failure
         if: needs.build.outputs.sync_failed == 'true'
         run: exit 1
+
 

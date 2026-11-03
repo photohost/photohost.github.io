@@ -1,0 +1,147 @@
+"""Select a conservative static-resource refresh or a normal Gmeek build."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import sys
+
+RECEIPT = Path(".gmeek-build.json")
+
+
+def read_json(path):
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def write_json(path, data):
+    Path(path).write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def snapshot():
+    config = read_json("config.json")
+    all_head = config.pop("allHead", "")
+    renderer = {str(path.as_posix()): hashlib.sha256(path.read_bytes()).hexdigest()
+                for path in sorted(Path("scripts").glob("*.py"))}
+    assets = {path.relative_to("static").as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+              for path in sorted(Path("static").rglob("*")) if path.is_file()}
+    return {"version": 1, "config": config, "renderer": renderer,
+            "allHead": all_head, "assets": assets}
+
+
+def baseline():
+    try:
+        data = read_json(RECEIPT)
+        if data.get("version") == 1:
+            return data
+    except (FileNotFoundError, ValueError):
+        pass
+    return {}
+
+
+def site_exists():
+    try:
+        index = read_json("blogBase.json")
+        outputs = ["docs/index.html", "docs/tag.html", "docs/rss.xml"]
+        for name in ("postListJson", "singeListJson"):
+            outputs.extend(post["htmlDir"] for post in index[name].values())
+        return all(Path(path).is_file() for path in outputs)
+    except (FileNotFoundError, ValueError, KeyError, TypeError):
+        return False
+
+
+def compatible(previous, current):
+    return (previous.get("version") == 1 and
+            previous.get("config") == current["config"] and
+            previous.get("renderer") == current["renderer"] and site_exists())
+
+
+def head_updates(previous, current):
+    old, new = previous["allHead"], current["allHead"]
+    updates = {}
+    if old == new:
+        return updates
+    if not old:
+        raise ValueError("No previous shared head to replace")
+    for path in Path("docs").rglob("*.html"):
+        html = path.read_text(encoding="utf-8")
+        head, separator, body = html.partition("</head>")
+        if not separator or head.count(old) != 1:
+            raise ValueError(f"Cannot safely refresh shared head in {path}")
+        updates[path] = head.replace(old, new, 1) + separator + body
+    return updates
+
+
+def can_refresh():
+    previous, current = baseline(), snapshot()
+    if not compatible(previous, current):
+        return False
+    before, after = previous["assets"], current["assets"]
+    changed = {path for path in before.keys() | after.keys() if before.get(path) != after.get(path)}
+    if any(Path(path).suffix.lower() not in (".js", ".css") for path in changed):
+        return False
+    try:
+        head_updates(previous, current)
+    except ValueError:
+        return False
+    return True
+
+
+def can_increment(copy_assets=False):
+    previous, current = baseline(), snapshot()
+    # An incremental article build must not certify stale site-wide settings.
+    return (compatible(previous, current) and previous["allHead"] == current["allHead"] and
+            (previous["assets"].keys() <= current["assets"].keys() if copy_assets
+             else previous["assets"] == current["assets"]))
+
+
+def save_receipt():
+    write_json(RECEIPT, snapshot())
+
+
+def refresh():
+    if not can_refresh():
+        raise ValueError("Site inputs changed; use a full build")
+    previous, current = baseline(), snapshot()
+    updates = head_updates(previous, current)  # Validate every page before writing.
+    for name in previous["assets"].keys() - current["assets"].keys():
+        target = Path("docs") / name
+        target.resolve().relative_to(Path("docs").resolve())
+        target.unlink(missing_ok=True)
+    if Path("static").is_dir():
+        shutil.copytree("static", "docs", dirs_exist_ok=True)
+    for path, html in updates.items():
+        path.write_text(html, encoding="utf-8")
+    index = read_json("blogBase.json")
+    index["allHead"] = current["allHead"]
+    write_json("blogBase.json", index)
+    save_receipt()
+    print(f"Static resource refresh complete; updated {len(updates)} HTML heads; article rendering skipped")
+
+
+def choose():
+    event = os.environ.get("EVENT", "")
+    mode = os.environ.get("INPUT_MODE") or "build"
+    if event == "schedule" and os.environ.get("EVENT_SCHEDULE") != "0 16 * * *":
+        mode = "notion-publish"
+    elif event == "push":
+        mode = "assets" if can_refresh() else "build"
+    if mode not in ("build", "assets", "notion-preview", "notion-publish"):
+        raise ValueError("Unknown build mode")
+    with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+        output.write(f"mode={mode}\n")
+        output.write(f"build={str(mode in ('build', 'assets')).lower()}\n")
+    print(f"Selected build mode: {mode}")
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a", encoding="utf-8") as output:
+            output.write(f"Build mode: **{mode}**\n")
+
+
+if __name__ == "__main__":
+    if sys.argv[1] == "choose":
+        choose()
+    elif sys.argv[1] == "refresh":
+        refresh()
+    else:
+        raise ValueError("Unknown command")
+

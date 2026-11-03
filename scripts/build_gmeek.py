@@ -13,6 +13,7 @@ import urllib.error
 import urllib.request
 from urllib.parse import quote
 
+from site_build import can_increment, save_receipt
 from notion_sync import read_json, valid_slug, source_config, MARKER, BATCH, SyncError
 
 
@@ -204,14 +205,19 @@ def main():
     batch = read_json(BATCH, []) if os.environ.get("SYNC_MODE") == "notion-publish" else None
     # Running from the site checkout preserves static/ across docs/ rebuilds.
     shutil.copytree(source_path.parent / "templates", "templates", dirs_exist_ok=True)
+    reusable = can_increment(copy_assets=batch is not None)
+    if batch is not None and not reusable:
+        print("Site-wide inputs changed; rebuilding all articles", flush=True)
     tree = adapted_tree(source_path.read_text(encoding="utf-8"))
     sys.argv = [str(source_path), os.environ["GITHUB_TOKEN"], os.environ["GITHUB_REPOSITORY"],
-                "--issue_number", os.environ.get("ISSUE_NUMBER") or "0"]
+                "--issue_number", (os.environ.get("ISSUE_NUMBER") or "0") if reusable else "0"]
     namespace = {"__name__": "__main__", "__file__": str(source_path),
-                 "_install_fixed_slugs": lambda cls: install_adapter(cls, state, batch)}
+                 "_install_fixed_slugs": lambda cls: install_adapter(cls, state, batch if reusable else None)}
     exec(compile(tree, str(source_path), "exec"), namespace)
     add_article_metadata(read_json("blogBase.json"), state, batch or [])
+    save_receipt()
 
 
 if __name__ == "__main__":
     main()
+
