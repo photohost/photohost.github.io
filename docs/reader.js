@@ -51,6 +51,31 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
     const body = document.querySelector('#postBody');
     if (!body) return;
+
+    const title = document.querySelector('#header .postTitle');
+    if (title && title.textContent.trim() && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        const fullText = title.textContent;
+        const characters = typeof Intl.Segmenter === 'function'
+            ? Array.from(new Intl.Segmenter(undefined, {granularity: 'grapheme'}).segment(fullText), part => part.segment)
+            : Array.from(fullText);
+        const original = document.createElement('span');
+        original.style.opacity = '0';
+        original.textContent = fullText;
+        const typed = document.createElement('span');
+        typed.setAttribute('aria-hidden', 'true');
+        original.style.gridArea = typed.style.gridArea = '1 / 1';
+        const layers = document.createElement('span');
+        layers.style.display = 'grid';
+        layers.append(original, typed);
+        title.replaceChildren(layers);
+        let count = 0;
+        function typeTitle() {
+            typed.textContent += characters[count++];
+            if (count < characters.length) setTimeout(typeTitle, 65);
+            else title.textContent = fullText;
+        }
+        typeTitle();
+    }
     const nav = document.createElement('nav');
     nav.id = 'reader-nav';
     nav.setAttribute('aria-label', '文章閱讀位置');
