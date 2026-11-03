@@ -39,7 +39,8 @@ function setup(t) {
 	const storage = new MemoryStorage()
 	const calls = []
 	let busy = false, failLookup = false, failDispatch = false
-	const fetcher = async (url, options) => {
+	const fetcher = async function (url, options) {
+		assert.equal(this, undefined, "fetch must not receive the queue instance as its receiver")
 		calls.push({ url, options })
 		if (options.method === "POST") return new Response(null, { status: failDispatch ? 503 : 204 })
 		assert.match(url, /^https:\/\/api\.github\.com\/repos\/photohost\/photohost\.github\.io\/actions\/workflows\/Gmeek\.yml\/runs\?/)
@@ -136,7 +137,7 @@ test("an event arriving during dispatch is retained for the next sync", async t 
 	const dispatchReply = new Promise(resolve => { resume = resolve })
 	const fetcher = async (url, options) => {
 		if (options.method === "POST") { entered(); await dispatchReply }
-		return h.fetcher(url, options)
+		return h.fetcher.call(undefined, url, options)
 	}
 	const queue = new PublicationQueue(state(h.storage), env, fetcher)
 	await queue.fetch(request(1))

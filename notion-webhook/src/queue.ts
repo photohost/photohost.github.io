@@ -78,13 +78,14 @@ export class PublicationQueue {
 
 	private async busy(): Promise<boolean> {
 		if (!this.env.GITHUB_ACTIONS_TOKEN) throw new Error("GitHub credential missing")
+		const fetcher = this.fetcher
 		const results = await Promise.all(ACTIVE_STATUSES.map(async status => {
-			const response = await this.fetcher(
+			const response = await fetcher(
 				`https://api.github.com/repos/${TARGET.repository}/actions/workflows/${TARGET.workflow}/runs?status=${status}&per_page=1`,
 				{ headers: { Authorization: `Bearer ${this.env.GITHUB_ACTIONS_TOKEN}`,
 					Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28",
 					"User-Agent": "notion-gmeek-webhook" }, signal: AbortSignal.timeout(8000) })
-			if (!response.ok) throw new Error("GitHub run lookup failed")
+			if (!response.ok) throw new Error(`GitHub run lookup failed (HTTP ${response.status}, status ${status})`)
 			const body = await response.json() as { workflow_runs?: unknown[] }
 			if (!Array.isArray(body.workflow_runs)) throw new Error("Invalid GitHub run response")
 			return body.workflow_runs.length > 0
@@ -115,10 +116,12 @@ export class PublicationQueue {
 					queue.failures = 0
 					queue.notBefore = Date.now() + DISPATCH_GRACE
 				}
-			} catch {
+			} catch (error) {
 				queue.failures = Math.min(queue.failures + 1, 5)
 				queue.notBefore = Date.now() + Math.min(300_000, 30_000 * 2 ** (queue.failures - 1))
-				console.error("Publication queue will retry GitHub access")
+				const reason = error instanceof Error && error.message.startsWith("GitHub ")
+					? error.message : "GitHub request failed"
+				console.error("Publication queue will retry", reason)
 			}
 			// The alarm is stored before clearing work; a crash can retry, never drop it.
 			await this.state.storage.setAlarm(queue.notBefore)
