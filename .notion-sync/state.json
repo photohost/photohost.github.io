@@ -53,7 +53,7 @@
       "deployed_fingerprint": "12d3cf3c1e8870ab3eebb854817f12c132191e3ca070570a33f2d6dad5ca39db",
       "published_at": "2026-11-03T23:12:35+08:00",
       "deleted": true,
-      "deletion_deployed": false
+      "deletion_deployed": true
     }
   }
 }
