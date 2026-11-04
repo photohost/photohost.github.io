@@ -35,7 +35,7 @@
     "scripts/build_gmeek.py": "89de294ab5d4d15e253981902cc9544ea8d7fb8296490fa133b2d0c1d74dfec5",
     "scripts/font_pilot.py": "f7bbc9e9e0890c3973cdec01d71cf2f10a378de17f0836edd797c37b2f31209f",
     "scripts/image_reading.py": "56292d3aff8c36c7494290d39eb263d8249f82da3b3eddb6d9b95e1e6a0325a6",
-    "scripts/notion_sync.py": "7cd43cd3308b83e2d902ccc3c3bb85e696a309b7928fe3da86d572f77b540bc9",
+    "scripts/notion_sync.py": "a8c6a84d14ba893546eb0b6254d718977a9421eaec897a62ad0e62d9d03ba73d",
     "scripts/preview_notion.py": "898b1fb5358fbc25b0b458af14e320367b307b6f4df209ce9882acc6e5835020",
     "scripts/site_build.py": "1fe414b15e78b73d6b77368103c84cbdcbcce8c22c783e197883ad72cf62dc31",
     "scripts/sync_notion.py": "b13ad4e5f3cacbcf71f56ea8b5399d0cab9ab944a2981a623095dd7c8b4bc991"
