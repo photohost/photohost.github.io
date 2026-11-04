@@ -1,0 +1,50 @@
+/* Minimal monochrome loading feedback, independent of article badge colors. */
+#page-progress {
+    position: fixed;
+    inset: 0 0 auto;
+    height: 2px;
+    z-index: 10000;
+    pointer-events: none;
+    background: linear-gradient(90deg, #777, #ddd, #fff);
+    box-shadow: 0 0 7px rgba(255,255,255,.6);
+    transform-origin: left;
+    transform: scaleX(0);
+    opacity: 0;
+}
+.feed-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    min-height: 64px;
+    padding: 16px 0;
+    color: #666;
+    font-size: 13px;
+    letter-spacing: .04em;
+}
+.feed-spinner {
+    width: 15px;
+    height: 15px;
+    border: 1.5px solid #ccc;
+    border-top-color: #555;
+    border-radius: 50%;
+    animation: feed-spin .85s linear infinite;
+}
+.feed-loader [hidden], .paginate-container[hidden] { display: none !important; }
+.feed-retry {
+    color: #444;
+    font: inherit;
+    padding: 8px 14px;
+    border: 1px solid #ccc;
+    border-radius: 999px;
+    background: linear-gradient(160deg, #fff, #eee);
+    cursor: pointer;
+}
+.feed-retry:focus-visible { outline: 2px solid #666; outline-offset: 3px; }
+.feed-retry:hover { background: #fff; }
+.feed-loader a { color: #555; text-decoration: underline; text-underline-offset: 3px; }
+@keyframes feed-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+    .feed-spinner { animation: none; }
+}
