@@ -89,6 +89,7 @@
         let busy = false;
         let failed = false;
         let restoring = false;
+        const searching = () => document.documentElement.dataset.searchActive === 'true';
 
         function nextPage(doc) {
             const href = doc.querySelector('.pagination a.next_page[rel="next"]')?.getAttribute('href');
@@ -139,7 +140,7 @@
         }
 
         async function loadMore(animate = true) {
-            if (busy || !next) return false;
+            if (busy || !next || (animate && searching())) return false;
             const path = next;
             busy = true;
             failed = false;
@@ -182,7 +183,7 @@
                 visited.add(path);
                 loaded.push(path);
                 next = following;
-                if (animate) reveal(additions, .12);
+                if (animate && !searching()) reveal(additions, .12);
                 return true;
             } catch {
                 failed = true;
@@ -198,6 +199,10 @@
         const observer = new IntersectionObserver(entries => {
             if (entries.some(entry => entry.isIntersecting) && !failed && !restoring) loadMore();
         }, { rootMargin: '0px 0px 80px 0px' });
+        document.addEventListener('blog:search-change', () => {
+            observer.unobserve(loader);
+            if (!searching()) observer.observe(loader);
+        });
         retry.addEventListener('click', () => loadMore());
         window.addEventListener('pagehide', () => {
             try { sessionStorage.setItem(storageKey, JSON.stringify({ pages: loaded, y: scrollY })); } catch { /* Storage can be disabled. */ }
@@ -215,7 +220,7 @@
                 if (path !== next || !await loadMore(false)) break;
             }
             restoring = false;
-            if (Number.isFinite(saved.y)) requestAnimationFrame(() => scrollTo(0, saved.y));
+            if (Number.isFinite(saved.y)) requestAnimationFrame(() => { if (!searching()) scrollTo(0, saved.y); });
         }
         updateLoader();
         restore().finally(() => observer.observe(loader));
