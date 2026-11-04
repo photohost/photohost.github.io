@@ -110,6 +110,9 @@ class SyncTests(unittest.TestCase):
         clock = patch.object(ns, "publication_time", return_value=ns.dt.datetime.fromisoformat(FIRST_PUBLICATION))
         self.clock = clock.start()
         self.addCleanup(clock.stop)
+        sleep = patch.object(ns.time, "sleep")
+        sleep.start()
+        self.addCleanup(sleep.stop)
 
     def tearDown(self):
         os.chdir(self.previous)
@@ -718,6 +721,88 @@ class SyncTests(unittest.TestCase):
         with self.assertRaisesRegex(ns.SyncError, "唯一對應標記"):
             self.prepare(second)
 
+    def test_delete_success_payload_with_visible_issue_never_marks_success(self):
+        sync = self.deployed()
+        self.set_status("delete")
+        second = self.sync(state=sync.state)
+        original = self.github.call
+        attempts = []
+        def call(method, path, data=None):
+            if path == "/graphql":
+                attempts.append(data)
+                return {"data": {"deleteIssue": {"repository": {"nameWithOwner": "owner/repo"}}}}
+            return original(method, path, data)
+        with patch.object(self.github, "call", side_effect=call):
+            with self.assertRaisesRegex(ns.SyncError, "刪除尚未確認"):
+                second.publish(self.prepare(second))
+        self.assertEqual(len(attempts), 3)
+        self.assertFalse(second.state["pages"][PID].get("deleted"))
+        self.assertEqual(second.batch, [])
+        self.assertTrue(self.notion.page["properties"]["Published"]["checkbox"])
+
+    def test_delete_transient_error_retries_and_lost_response_checks_before_retry(self):
+        for lost in (False, True):
+            with self.subTest(lost_response=lost):
+                self.github = GitHub()
+                self.notion = Notion()
+                sync = self.deployed()
+                self.set_status("delete")
+                second = self.sync(state=sync.state)
+                original = self.github.call
+                attempts = []
+                def call(method, path, data=None):
+                    if path == "/graphql":
+                        attempts.append(data)
+                        if len(attempts) == 1:
+                            if lost:
+                                original(method, path, data)
+                                raise ns.NetworkError("lost response")
+                            raise ns.APIError(method, path, 502)
+                    return original(method, path, data)
+                with patch.object(self.github, "call", side_effect=call):
+                    second.publish(self.prepare(second))
+                self.assertEqual(len(attempts), 1 if lost else 2)
+                self.assertEqual(self.github.issues, {})
+                self.assertTrue(second.state["pages"][PID]["deleted"])
+
+    def test_delete_permission_error_is_not_retried_or_reported_as_success(self):
+        sync = self.deployed()
+        self.set_status("delete")
+        second = self.sync(state=sync.state)
+        original = self.github.call
+        attempts = []
+        def call(method, path, data=None):
+            if path == "/graphql":
+                attempts.append(data)
+                return {"errors": [{"type": "FORBIDDEN", "message": "private details"}]}
+            return original(method, path, data)
+        with patch.object(self.github, "call", side_effect=call):
+            with self.assertRaisesRegex(ns.SyncError, "FORBIDDEN") as error:
+                second.publish(self.prepare(second))
+        self.assertNotIn("private details", str(error.exception))
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(second.batch, [])
+
+    def test_delete_hidden_repository_is_not_treated_as_deleted_issue(self):
+        sync = self.deployed()
+        self.set_status("delete")
+        second = self.sync(state=sync.state)
+        plan = self.prepare(second)
+        original = self.github.call
+        missing = False
+        def call(method, path, data=None):
+            nonlocal missing
+            if method == "GET" and "/issues/" in path:
+                missing = True
+                raise ns.APIError(method, path, 404)
+            if missing and path == "/repos/owner/repo":
+                raise ns.APIError(method, path, 404)
+            return original(method, path, data)
+        with patch.object(self.github, "call", side_effect=call):
+            with self.assertRaises(ns.APIError):
+                second.publish(plan)
+        self.assertFalse(second.state["pages"][PID].get("deleted"))
+
     def test_delete_wrong_number_or_changed_status_never_deletes(self):
         sync = self.deployed()
         self.set_status("delete")
@@ -782,7 +867,3 @@ instance = GMEEK()
 
 if __name__ == "__main__":
     unittest.main()
-
-
-
-
