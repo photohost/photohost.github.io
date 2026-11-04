@@ -14,7 +14,7 @@
       "deployed_fingerprint": "a38b117a7334dc90edebe2d6004dafbed2b556b9cb6a0b39f0febe33d9414fad",
       "published_at": "2026-10-27T00:15:46+08:00",
       "deleted": true,
-      "deletion_deployed": false
+      "deletion_deployed": true
     },
     "40540a03-f4e8-8047-9bc6-c196f67096d7": {
       "issue": 209,
@@ -71,7 +71,7 @@
       "deployed_fingerprint": "21647ea32bdc16b06c71e8f993cd7476fbe9cca9005811b7e25e9999bb28a26f",
       "published_at": "2026-11-04T08:19:09+08:00",
       "deleted": true,
-      "deletion_deployed": false
+      "deletion_deployed": true
     }
   }
 }
