@@ -40,7 +40,7 @@
     "scripts/site_build.py": "1fe414b15e78b73d6b77368103c84cbdcbcce8c22c783e197883ad72cf62dc31",
     "scripts/sync_notion.py": "b13ad4e5f3cacbcf71f56ea8b5399d0cab9ab944a2981a623095dd7c8b4bc991"
   },
-  "allHead": "<script>(()=>{const p=location.pathname;document.documentElement.dataset.blogLayout=p==='/'||p.includes('/index.html')||p.includes('/page')?'list':p.includes('/post/')||p.includes('/link.html')||p.includes('/about.html')?'post':p.includes('/tag')?'search':''})()</script><link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin><link rel=\"preload\" as=\"style\" href=\"https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&amp;family=Noto+Serif+TC:wght@400;600;700&amp;display=swap\" onload=\"this.rel='stylesheet'\"><noscript><link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&amp;family=Noto+Serif+TC:wght@400;600;700&amp;display=swap\"></noscript><link rel=\"stylesheet\" href=\"/reading.css\"><script src='/site-theme.js' defer></script><script src='/reader.js' defer></script><script src='/starfield.js' defer></script><script src='/title-typewriter.js' defer></script><style>#avatarImg{display:none}.title-left .blogTitle{display:inline!important}</style><style>.article-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 16px}.article-meta .Label{color:#fff;font-variant-numeric:tabular-nums}.article-meta a{color:inherit}.article-meta a:focus-visible{outline:2px solid currentColor;outline-offset:2px}</style>",
+  "allHead": "<script>(()=>{const p=location.pathname;document.documentElement.dataset.blogLayout=p==='/'||p.includes('/index.html')||p.includes('/page')?'list':p.includes('/post/')||p.includes('/link.html')||p.includes('/about.html')?'post':p.includes('/tag')?'search':''})()</script><link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin><link rel=\"preload\" as=\"style\" href=\"https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&amp;family=Noto+Serif+TC:wght@400;600;700&amp;display=swap\" onload=\"this.rel='stylesheet'\"><noscript><link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&amp;family=Noto+Serif+TC:wght@400;600;700&amp;display=swap\"></noscript><link rel=\"stylesheet\" href=\"/reading.css\"><script src='/site-theme.js' defer></script><script src='/reader.js' defer></script><script src='/starfield.js' defer></script><script src='/title-typewriter.js' defer></script><style>#avatarImg{display:none}.title-left .blogTitle{display:inline!important}</style><style>.article-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 16px}.article-meta .Label{color:#fff;font-variant-numeric:tabular-nums}.article-meta a{color:inherit}.article-meta a:focus-visible{outline:2px solid currentColor;outline-offset:2px}</style><link rel=\"stylesheet\" href=\"/page-flow.css\"><script src=\"/vendor/gsap.min.js\" defer></script><script src=\"/page-flow.js\" defer></script>",
   "assets": {
     "2024-06-19_18-28.png": "acb1f1f9f09abe39e610714ffd8fc1dabb5c18fdbc9c5dfd27f6674e48614bba",
     "article-toc.js": "bf7099a30d6ed2eec86af176c36033aa5f72314c17da9e5e99625b38898bd866",
@@ -54,11 +54,14 @@
     "notion-assets/9daaa90bb516ba0fe6519f7d7f60d3a1afd766478137daeebe3f636cf96d466b.jpg": "9daaa90bb516ba0fe6519f7d7f60d3a1afd766478137daeebe3f636cf96d466b",
     "notion-assets/9f21713ec527b3488fba9489b7e42f9f5ae3dc27f58e64ab9d1a21f068a6e1dd.jpg": "9f21713ec527b3488fba9489b7e42f9f5ae3dc27f58e64ab9d1a21f068a6e1dd",
     "notion-assets/c18111d8db482d169ed6fff4bb3698c740c14f87ef6d98388c9d3129c0484d62.jpg": "c18111d8db482d169ed6fff4bb3698c740c14f87ef6d98388c9d3129c0484d62",
+    "page-flow.css": "5bcfed3bb07ef3569373723b2bb147515c1f62121e4a79dfc4c5906fda98ee89",
+    "page-flow.js": "76a39d98ceeffa862a5d9f65a63c0be973213a02b7491b7f3b0e3dd3f3da8417",
     "reader.js": "dfc8b7e313ea988a5b746cbf9b1992386c26326710424410ab9a34773f197f38",
     "reading-surfaces.js": "22c923b841063c595a7865ac28ffc4aa8eece8c5b5291abc1edda7610a36d0b2",
     "reading.css": "b98b1c6e2d6cf9783ece74841faec36f129894113c658608f61a6175e5c74eae",
     "site-theme.js": "1b2527e6b2f5bd643740a165866620fc61196b64f1513421ddfe6e0c4d431dc5",
     "starfield.js": "ea7ba264ea222404ac217ed16f687dff8dcbe13e985c68b0d5c5ef76993d0e5f",
-    "title-typewriter.js": "93d156a4d47870f9d9fa37df37cd94d8a31b85eb2c3dbad51a70cd208bc732bf"
+    "title-typewriter.js": "93d156a4d47870f9d9fa37df37cd94d8a31b85eb2c3dbad51a70cd208bc732bf",
+    "vendor/gsap.min.js": "2f67b1dc3844f8b6f0a001fa1075c8260a2d4e437efe5bf39ad64896ded58a34"
   }
 }
