@@ -72,6 +72,10 @@
       "published_at": "2026-11-04T08:19:09+08:00",
       "deleted": true,
       "deletion_deployed": true
+    },
+    "40e40a03-f4e8-808d-993c-ddf58937ee34": {
+      "issue": 241,
+      "slug": "notion-40e40a03f4e8808d993cddf58937ee34"
     }
   }
 }
