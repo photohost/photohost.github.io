@@ -112,7 +112,7 @@ jobs:
           if [ -d static/notion-assets ]; then git add static/notion-assets; fi
           if ! git diff --cached --quiet; then
             git commit -m "Save Notion article mappings and images"
-            git push
+            bash scripts/push_site_commit.sh
           fi
       - name: Set up Pages
         if: steps.mode.outputs.build == 'true' || (steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true')
@@ -145,7 +145,7 @@ jobs:
           git add docs backup blogBase.json README.md .gmeek-build.json
           if ! git diff --cached --quiet; then
             git commit -m "Update site from Gmeek"
-            git push
+            bash scripts/push_site_commit.sh
           fi
       - name: Report site ready to deploy
         if: steps.mode.outputs.mode == 'notion-publish' && steps.sync.outputs.has_articles == 'true'
@@ -222,7 +222,7 @@ jobs:
             git add .notion-sync/state.json
             if ! git diff --cached --quiet; then
               git commit -m "Record deployed Notion article versions"
-              git push
+              bash scripts/push_site_commit.sh
             fi
           fi
       - name: Report partial sync failure
