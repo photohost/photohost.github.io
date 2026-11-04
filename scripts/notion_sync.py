@@ -34,6 +34,10 @@ class SyncError(Exception):
     pass
 
 
+class NetworkError(SyncError):
+    pass
+
+
 class APIError(SyncError):
     def __init__(self, method, path, status):
         self.status = status
@@ -87,7 +91,7 @@ class API:
                 if safe and attempt < 3:
                     time.sleep(2 ** (attempt + 1))
                     continue
-                raise SyncError("Network request failed; rerun to recover by the existing Issue marker") from None
+                raise NetworkError("Network request failed; rerun to recover by the existing Issue marker") from None
 
     def pages(self, path):
         result = []
@@ -670,6 +674,29 @@ class Sync:
                 "title": "", "file_title": pid, "body": "", "tags": [],
                 "fingerprint": ""}
 
+    def deletion_target(self, item, confirmed=False):
+        path = f"/repos/{self.repo}/issues/{item['issue']}"
+        try:
+            current = self.delete_github.call("GET", path)
+        except APIError as exc:
+            entry = self.state["pages"].get(item["page_id"], {})
+            if exc.status not in (404, 410) or not (confirmed or entry.get("issue") == item["issue"]):
+                raise
+            # A hidden repository must not be mistaken for a deleted Issue.
+            self.check_delete_repository()
+            return None
+        if ("pull_request" in current or MARKER.findall(current.get("body") or "") != [item["page_id"]]
+                or not current.get("node_id")):
+            raise SyncError("拒絕刪除：Issue 不含此 Notion 文章的唯一對應標記")
+        if item["old_issue"] and current["updated_at"] != item["old_issue"]["updated_at"]:
+            raise SyncError("GitHub Issue changed before deletion; retry after reviewing it")
+        return current
+
+    def check_delete_repository(self):
+        repository = self.delete_github.call("GET", f"/repos/{self.repo}")
+        if repository.get("full_name", "").casefold() != self.repo.casefold() or not repository.get("permissions", {}).get("admin"):
+            raise SyncError("NOTION_DELETE_TOKEN 無法確認此儲存庫的擁有者權限")
+
     def delete_issue(self, item):
         if not self.delete_github:
             raise SyncError("請先設定 NOTION_DELETE_TOKEN：由 photohost 建立、限此儲存庫且 Issues 讀寫權限的 GitHub 權杖")
@@ -678,27 +705,41 @@ class Sync:
         actor = self.delete_github.call("GET", "/user")
         if actor.get("login", "").casefold() != owner.casefold():
             raise SyncError("NOTION_DELETE_TOKEN 必須由此儲存庫擁有者建立")
-        repository = self.delete_github.call("GET", f"/repos/{self.repo}")
-        if repository.get("full_name", "").casefold() != self.repo.casefold() or not repository.get("permissions", {}).get("admin"):
-            raise SyncError("NOTION_DELETE_TOKEN 無法確認此儲存庫的擁有者權限")
-        try:
-            current = self.delete_github.call("GET", f"/repos/{self.repo}/issues/{item['issue']}")
-        except APIError as exc:
-            entry = self.state["pages"].get(item["page_id"], {})
-            if exc.status in (404, 410) and entry.get("issue") == item["issue"]:
-                return  # Recover after a successful deletion with a lost response.
-            raise
-        if ("pull_request" in current or MARKER.findall(current.get("body") or "") != [item["page_id"]]
-                or not current.get("node_id")):
-            raise SyncError("拒絕刪除：Issue 不含此 Notion 文章的唯一對應標記")
-        if item["old_issue"] and current["updated_at"] != item["old_issue"]["updated_at"]:
-            raise SyncError("GitHub Issue changed before deletion; retry after reviewing it")
-        response = self.delete_github.call("POST", "/graphql", {
-            "query": "mutation($id:ID!){deleteIssue(input:{issueId:$id}){repository{nameWithOwner}}}",
-            "variables": {"id": current["node_id"]}})
-        deleted_repo = ((response.get("data") or {}).get("deleteIssue") or {}).get("repository") or {}
-        if response.get("errors") or deleted_repo.get("nameWithOwner", "").casefold() != self.repo.casefold():
-            raise SyncError("GitHub 拒絕刪除 Issue；請確認 NOTION_DELETE_TOKEN 的擁有者與 Issues 讀寫權限")
+        self.check_delete_repository()
+        confirmed = False
+        for attempt in range(3):
+            current = self.deletion_target(item, confirmed)
+            if current is None:
+                return
+            confirmed = True
+            failure = None
+            try:
+                response = self.delete_github.call("POST", "/graphql", {
+                    "query": "mutation($id:ID!){deleteIssue(input:{issueId:$id}){repository{nameWithOwner}}}",
+                    "variables": {"id": current["node_id"]}})
+                errors = response.get("errors") or []
+                if errors:
+                    # Log only known error categories, never response bodies or credentials.
+                    kinds = {error.get("type") for error in errors}
+                    known = kinds & {"FORBIDDEN", "UNAUTHORIZED", "NOT_FOUND", "RATE_LIMITED", "INTERNAL"}
+                    category = ", ".join(sorted(known)) or "UNKNOWN"
+                    if not kinds <= {"RATE_LIMITED", "INTERNAL"}:
+                        failure = SyncError(f"GitHub 拒絕刪除 Issue（{category}）；保持 delete，請查看執行紀錄")
+            except APIError as exc:
+                if exc.status != 429 and exc.status < 500:
+                    failure = exc
+            except NetworkError:
+                pass  # The mutation may have succeeded despite losing its response.
+            # HTTP 200 and a mutation payload are not proof of permanent deletion.
+            # Re-read before every retry and before marking the local receipt deleted.
+            for delay in (2, 4, 8):
+                time.sleep(delay)
+                if self.deletion_target(item, confirmed) is None:
+                    return
+                if failure:
+                    raise failure
+            print(f"Issue #{item['issue']} still exists after deletion attempt {attempt + 1}")
+        raise SyncError("GitHub Issue 仍存在，刪除尚未確認；保持 delete，系統將重試")
 
     def publish(self, prepared):
         prepared = [item for item in prepared if item["needs_sync"]]
@@ -826,8 +867,9 @@ class Sync:
             write_json(STATE, self.state)
 
     def report_error(self, pages, message):
-        result = "發布前檢查失敗：" + message[:1800]
         for page in pages:
+            prefix = "刪除未完成：" if status_name(page, self.config) == self.delete_status else "發布前檢查失敗："
+            result = prefix + message[:1800]
             if not self.requested(page) or any(x["page_id"] == uuid_text(page["id"]) for x in self.batch):
                 continue
             latest = self.notion.call("GET", "/pages/" + uuid_text(page["id"]))
@@ -916,7 +958,3 @@ if __name__ == "__main__":
     except SyncError as exc:
         print("Sync stopped: " + str(exc), file=sys.stderr)
         sys.exit(1)
-
-
-
-
