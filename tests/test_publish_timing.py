@@ -31,6 +31,28 @@ class PublishTimingTests(unittest.TestCase):
             self.assertIn("工作建立 → 執行器開始（排隊） | 10 秒", text)
             self.assertNotIn("photohost/", text)
 
+    def test_complete_summary_includes_deployment_queue(self):
+        with tempfile.TemporaryDirectory() as directory:
+            summary = Path(directory) / "summary.md"
+            env = {"GITHUB_RUN_ID": "123", "GITHUB_REPOSITORY": "photohost/photohost.github.io",
+                   "GITHUB_STEP_SUMMARY": str(summary), "NOTION_TO_WEBHOOK_MS": "3500",
+                   "WEBHOOK_TO_DISPATCH_MS": "20000",
+                   "WORKER_DISPATCHED_AT": "2026-11-05T10:00:00Z"}
+            def github(path):
+                if path.endswith("/jobs?per_page=20"):
+                    return {"jobs": [
+                        {"name": "Sync and generate blog", "started_at": "2026-11-05T10:00:12Z",
+                         "completed_at": "2026-11-05T10:01:00Z"},
+                        {"name": "Deploy blog", "started_at": "2026-11-05T10:13:00Z",
+                         "completed_at": "2026-11-05T10:13:20Z"},
+                    ]}
+                return {"created_at": "2026-11-05T10:00:02Z"}
+            with patch.dict(os.environ, env), patch.object(publish_timing, "github_json", side_effect=github):
+                publish_timing.report(complete=True)
+            text = summary.read_text(encoding="utf-8")
+            self.assertIn("建置完成 → 部署開始（部署排隊） | 720 秒", text)
+            self.assertIn("網站部署 | 20 秒", text)
+
 
 if __name__ == "__main__":
     unittest.main()
