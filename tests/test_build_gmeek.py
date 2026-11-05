@@ -115,6 +115,29 @@ class IncrementalBuildTests(unittest.TestCase):
             with self.assertRaises(SyncError): builder.runAll()
             builder.createPlistHtml.assert_not_called()
 
+    def test_pin_only_updates_index_without_rendering_article(self):
+        self.previous["postListJson"]["P205"] = {
+            "postTitle": "Keep", "postUrl": "post/fixed.html", "top": 0}
+        Path("blogBase.json").write_text(json.dumps(self.previous))
+        Path("docs/post/fixed.html").write_text("unchanged article")
+        builder = self.builder([{"action": "pin", "issue": 205, "slug": "fixed", "pinned": True}])
+        builder.runAll()
+        self.assertEqual(builder.blogBase["postListJson"]["P205"]["top"], 1)
+        self.assertEqual(Path("docs/post/fixed.html").read_text(), "unchanged article")
+        builder.repo.get_issue.assert_not_called()
+        builder.createPostHtml.assert_not_called()
+        builder.createPlistHtml.assert_called_once()
+
+    def test_pin_only_rejects_missing_or_wrong_url(self):
+        self.previous["postListJson"]["P205"] = {
+            "postTitle": "Keep", "postUrl": "post/fixed.html", "top": 0}
+        Path("blogBase.json").write_text(json.dumps(self.previous))
+        for issue, slug in ((205, "other"), (206, "fixed")):
+            builder = self.builder([{"action": "pin", "issue": issue, "slug": slug, "pinned": True}])
+            with self.assertRaises(SyncError):
+                builder.runAll()
+            builder.createPlistHtml.assert_not_called()
+
 
 class MarkdownRetryTests(unittest.TestCase):
     def render(self, outcomes):

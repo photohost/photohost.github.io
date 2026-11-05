@@ -492,14 +492,21 @@ class Sync:
             return not entry.get("deletion_deployed")
         if status == self.repost_status:
             return True
-        return (status == self.config["publish_status"] and
-                not entry.get("deployed_fingerprint") and not entry.get("deleted"))
+        if status != self.config["publish_status"] or entry.get("deleted"):
+            return False
+        if not entry.get("deployed_fingerprint"):
+            return True
+        return (bool(entry.get("issue")) and
+                bool(entry.get("pinned", False)) != self.page_pinned(page))
+
+    def page_pinned(self, page):
+        return bool(page["properties"][self.p["pinned"]]["checkbox"])
 
     def publish_pages(self):
         schema = self.notion.call("GET", "/data_sources/" + self.config["data_source_id"])
         types = {"title": "title", "status": "status", "tags": "multi_select", "date": "date",
                  "slug": "rich_text", "issue": "number", "url": "url", "result": "rich_text",
-                 "synced": "date", "published": "checkbox"}
+                 "synced": "date", "published": "checkbox", "pinned": "checkbox"}
         for key, expected in types.items():
             if schema.get("properties", {}).get(self.p[key], {}).get("type") != expected:
                 raise SyncError(f"Notion property {self.p[key]} must be {expected}")
@@ -546,6 +553,22 @@ class Sync:
                     continue
                 if status == self.delete_status:
                     prepared.append(self.prepare_delete(page, entry, by_number, by_marker))
+                    continue
+                desired_pin = self.page_pinned(page)
+                if (status == self.config["publish_status"] and entry.get("deployed_fingerprint")
+                        and entry.get("issue") and bool(entry.get("pinned", False)) != desired_pin):
+                    number = entry["issue"]
+                    issue = by_number.get(number)
+                    if not issue or issue["state"] != "open":
+                        raise SyncError(f"置頂更新失敗：Issue #{number} 不存在或已關閉")
+                    if (page["properties"][self.p["issue"]].get("number") != number or
+                            MARKER.findall(issue.get("body") or "") != [pid]):
+                        raise SyncError("置頂更新失敗：文章與 Issue 的對應不一致")
+                    prepared.append({"page_id": pid, "action": "pin", "status": status,
+                                     "issue": number, "slug": entry["slug"],
+                                     "pinned": desired_pin, "revision": page["last_edited_time"],
+                                     "fingerprint": entry["deployed_fingerprint"],
+                                     "needs_sync": True})
                     continue
                 if entry.get("deleted"):
                     raise SyncError("此文章的 Issue 已刪除；請複製成新的 Notion 文章後再發布")
@@ -631,6 +654,7 @@ class Sync:
                 prepared.append({"page_id": pid, "action": "publish", "status": status,
                                  "title": title, "file_title": file_title,
                                  "body": body, "tags": tags, "slug": slug, "issue": number,
+                                 "pinned": desired_pin,
                                  "old_issue": issue, "revision": latest["last_edited_time"],
                                  "published_at": meta["notion_published_at"],
                                  "fingerprint": fingerprint,
@@ -741,6 +765,47 @@ class Sync:
             print(f"Issue #{item['issue']} still exists after deletion attempt {attempt + 1}")
         raise SyncError("GitHub Issue 仍存在，刪除尚未確認；保持 delete，系統將重試")
 
+    def pin_state(self, node_id):
+        owner, name = self.repo.split("/", 1)
+        response = self.github.call("POST", "/graphql", {
+            "query": "query($id:ID!,$owner:String!,$name:String!){node(id:$id){... on Issue{id isPinned}} repository(owner:$owner,name:$name){pinnedIssues(first:3){totalCount}}}",
+            "variables": {"id": node_id, "owner": owner, "name": name}})
+        if response.get("errors"):
+            raise SyncError("GitHub 無法讀取文章置頂狀態；請查看 Actions 的 Issues 權限")
+        issue = (response.get("data") or {}).get("node") or {}
+        repo = (response.get("data") or {}).get("repository") or {}
+        count = (repo.get("pinnedIssues") or {}).get("totalCount")
+        if issue.get("id") != node_id or type(issue.get("isPinned")) is not bool or type(count) is not int:
+            raise SyncError("GitHub 未回傳可確認的文章置頂狀態")
+        return issue["isPinned"], count
+
+    def sync_pin(self, number, desired):
+        issue = self.github.call("GET", f"/repos/{self.repo}/issues/{number}")
+        node_id = issue.get("node_id")
+        if not node_id or issue.get("state") != "open":
+            raise SyncError(f"Issue #{number} 無法設定置頂")
+        current, count = self.pin_state(node_id)
+        if current == desired:
+            return
+        if desired and count >= 3:
+            raise SyncError("網站最多置頂三篇文章；請先取消其他文章的置頂")
+        action = "pinIssue" if desired else "unpinIssue"
+        try:
+            response = self.github.call("POST", "/graphql", {
+                "query": f"mutation($id:ID!){{{action}(input:{{issueId:$id}}){{issue{{id}}}}}}",
+                "variables": {"id": node_id}})
+            if response.get("errors") or not ((response.get("data") or {}).get(action) or {}).get("issue"):
+                raise SyncError("GitHub 拒絕更新文章置頂；請查看 Actions 的 Issues 權限與置頂上限")
+        except NetworkError:
+            # The mutation might have succeeded even if its response was lost.
+            pass
+        for attempt in range(3):
+            if self.pin_state(node_id)[0] == desired:
+                return
+            if attempt < 2:
+                time.sleep(2)
+        raise SyncError("GitHub 置頂狀態尚未確認；系統將重試")
+
     def publish(self, prepared):
         prepared = [item for item in prepared if item["needs_sync"]]
         if not prepared:
@@ -763,6 +828,11 @@ class Sync:
                 write_json(STATE, self.state)
                 self.save_batch(item, "GitHub Issue 已刪除，等待網站建置")
                 continue
+            if item["action"] == "pin":
+                self.sync_pin(item["issue"], item["pinned"])
+                self.save_batch(item, "置頂狀態已同步，等待網站建置")
+                print(f"Updated pin for Issue #{item['issue']}; awaiting deployment")
+                continue
             for label in item["tags"]:
                 if label not in labels:
                     self.github.call("POST", f"/repos/{self.repo}/labels", {"name": label, "color": "cfd3d7"})
@@ -777,6 +847,7 @@ class Sync:
             else:
                 created = self.github.call("POST", f"/repos/{self.repo}/issues", payload)
                 item["issue"] = created["number"]
+            self.sync_pin(item["issue"], item["pinned"])
             self.state["pages"][pid] = {**self.state["pages"].get(pid, {}),
                                         "issue": item["issue"], "slug": item["slug"]}
             write_json(STATE, self.state)
@@ -808,6 +879,7 @@ class Sync:
     def save_batch(self, item, message):
         self.batch.append({"page_id": item["page_id"], "issue": item["issue"], "slug": item["slug"],
                            "action": item["action"], "status": item["status"],
+                           "pinned": item.get("pinned", False),
                            "fingerprint": item["fingerprint"],
                            "published_at": item.get("published_at"),
                            "revision": item["revision"]})
@@ -842,13 +914,18 @@ class Sync:
                 continue
             props = {self.p["result"]: self.progress_property(f"{failure_stage}失敗。保持 {status}，系統會重試")}
             if succeeded:
-                props = {self.p["result"]: text_property("已從網站下架並刪除 GitHub Issue" if deleting else "已成功發布至網站"),
-                         self.p["published"]: {"checkbox": not deleting},
-                         self.p["synced"]: {"date": {"start": dt.datetime.now(dt.timezone.utc).isoformat()}},
-                         self.p["url"]: {"url": None if deleting else self.site["homeUrl"].rstrip("/") + "/post/" + urllib.parse.quote(item["slug"], safe="") + ".html"}}
+                if item.get("action") == "pin":
+                    props = {self.p["result"]: text_property("已置頂網站文章" if item["pinned"] else "已取消網站文章置頂"),
+                             self.p["synced"]: {"date": {"start": dt.datetime.now(dt.timezone.utc).isoformat()}}}
+                else:
+                    props = {self.p["result"]: text_property("已從網站下架並刪除 GitHub Issue" if deleting else "已成功發布至網站"),
+                             self.p["published"]: {"checkbox": not deleting},
+                             self.p["synced"]: {"date": {"start": dt.datetime.now(dt.timezone.utc).isoformat()}},
+                             self.p["url"]: {"url": None if deleting else self.site["homeUrl"].rstrip("/") + "/post/" + urllib.parse.quote(item["slug"], safe="") + ".html"}}
                 if deleting:
                     props[self.p["issue"]] = {"number": None}
-                else:
+                    props[self.p["pinned"]] = {"checkbox": False}
+                elif item.get("action") == "publish":
                     props[self.p["status"]] = {"status": {"name": self.config["publish_status"]}}
                     props[self.p["date"]] = {"date": {"start": item.get("published_at") or publication_time(self.site).isoformat()}}
             self.notion.call("PATCH", "/pages/" + item["page_id"], {"properties": props})
@@ -861,14 +938,22 @@ class Sync:
             if item.get("action") == "delete":
                 entry["deletion_deployed"] = True
             else:
-                entry["deployed_fingerprint"] = item["fingerprint"]
-                if item.get("published_at"):
-                    entry["published_at"] = item["published_at"]
+                entry["pinned"] = item["pinned"]
+                if item.get("action") == "publish":
+                    entry["deployed_fingerprint"] = item["fingerprint"]
+                    if item.get("published_at"):
+                        entry["published_at"] = item["published_at"]
             write_json(STATE, self.state)
 
     def report_error(self, pages, message):
         for page in pages:
-            prefix = "刪除未完成：" if status_name(page, self.config) == self.delete_status else "發布前檢查失敗："
+            if status_name(page, self.config) == self.delete_status:
+                prefix = "刪除未完成："
+            elif (status_name(page, self.config) == self.config["publish_status"] and
+                  self.state["pages"].get(uuid_text(page["id"]), {}).get("deployed_fingerprint")):
+                prefix = "置頂更新失敗："
+            else:
+                prefix = "發布前檢查失敗："
             result = prefix + message[:1800]
             if not self.requested(page) or any(x["page_id"] == uuid_text(page["id"]) for x in self.batch):
                 continue

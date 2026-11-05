@@ -82,12 +82,16 @@ def install_incremental_build(cls, batch):
     """Retain published HTML and render only this Notion deployment's Issues."""
     original = cls.runAll
     deleted = [item for item in batch if item.get("action") == "delete"]
-    issue_numbers = sorted({int(item["issue"]) for item in batch if item.get("action") != "delete"})
+    issue_numbers = sorted({int(item["issue"]) for item in batch if item.get("action", "publish") == "publish"})
+    pin_items = [item for item in batch if item.get("action") == "pin"]
     if not batch or any(int(item["issue"]) <= 0 for item in batch):
         raise SyncError("Notion publishing requires a nonempty deployment batch")
-    if any(item.get("action", "publish") not in ("publish", "delete") for item in batch):
+    if any(item.get("action", "publish") not in ("publish", "delete", "pin") for item in batch):
         raise SyncError("Unknown Notion deployment action")
-    if set(issue_numbers) & {int(item["issue"]) for item in deleted}:
+    if len({int(item["issue"]) for item in pin_items}) != len(pin_items):
+        raise SyncError("Conflicting Notion pin updates")
+    if set(issue_numbers) & {int(item["issue"]) for item in deleted + pin_items} or \
+            {int(item["issue"]) for item in deleted} & {int(item["issue"]) for item in pin_items}:
         raise SyncError("Conflicting Notion deployment actions")
 
     def run_batch(self):
@@ -125,6 +129,13 @@ def install_incremental_build(cls, batch):
             for path in Path(self.backup_dir).glob("*.md"):
                 if set(MARKER.findall(path.read_text(encoding="utf-8"))) & deleted_pages:
                     path.unlink()
+        for item in pin_items:
+            key = "P" + str(int(item["issue"]))
+            post = self.blogBase["postListJson"].get(key)
+            from notion_sync import existing_slug
+            if not post or existing_slug(post) != valid_slug(item["slug"]):
+                raise SyncError("置頂文章的既有網址或網站索引不一致")
+            post["top"] = int(item["pinned"])
         print(f"Incremental Notion build: {len(issue_numbers)} article(s)", flush=True)
         for number in issue_numbers:
             issue = self.repo.get_issue(number)
