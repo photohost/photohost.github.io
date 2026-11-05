@@ -54,6 +54,14 @@ class ContentPerformanceTests(unittest.TestCase):
             prepare_legacy_images()
             image.assert_not_called()
 
+    def test_failed_external_image_is_not_retried_on_every_publish(self):
+        src = "https://i.imgur.com/unavailable.jpg"
+        Path("docs/post/a.html").write_text(f'<div id="postBody"><img src="{src}"></div>', encoding="utf-8")
+        with patch("legacy_images.optimize", return_value=None) as image:
+            prepare_legacy_images()
+            prepare_legacy_images()
+            self.assertEqual(image.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()
