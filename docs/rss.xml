@@ -1,15 +1,11 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>終末</title><link>https://blog.harunoji.one</link><description>願此處乘載唯一真實</description><copyright>終末</copyright><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><image><url>https://iili.io/q9pxwnR.png</url><title>avatar</title><link>https://blog.harunoji.one</link></image><lastBuildDate>Thu, 05 Nov 2026 12:08:21 +0000</lastBuildDate><managingEditor>終末</managingEditor><ttl>60</ttl><webMaster>終末</webMaster><item><title>休假了</title><link>https://blog.harunoji.one/post/notion-40f40a03f4e880a6b343fa8c1749ac77.html</link><description>今天是放假，安排這個假的上個月，故意去卡新人的班，不讓他休連假，嘿嘿。雖然我冒著被靠北的壓力，但這幾個月以來我常常也是被犧牲的那個，加上常常被同事拿來比較，我超級不爽很久了。&#13;
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>終末</title><link>https://blog.harunoji.one</link><description>願此處乘載唯一真實</description><copyright>終末</copyright><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><image><url>https://iili.io/q9pxwnR.png</url><title>avatar</title><link>https://blog.harunoji.one</link></image><lastBuildDate>Thu, 05 Nov 2026 12:14:30 +0000</lastBuildDate><managingEditor>終末</managingEditor><ttl>60</ttl><webMaster>終末</webMaster><item><title>休假了</title><link>https://blog.harunoji.one/post/notion-40f40a03f4e880a6b343fa8c1749ac77.html</link><description>今天是放假，安排這個假的上個月，故意去卡新人的班，不讓他休連假，嘿嘿。雖然我冒著被靠北的壓力，但這幾個月以來我常常也是被犧牲的那個，加上常常被同事拿來比較，我超級不爽很久了。&#13;
 &#13;
 然後剛好也是發薪日，真的去了我的天啊…去日本的開銷算上去，剛好直接打平，不能繳房租跟學貸了，今天又去刷了明天去日本的機票錢，真的要吃土吃到明年去了，這下物慾真的要降低再降低，學貸也不知道怎麼處理…&#13;
 &#13;
 這幾天也都在優化寫日記的網站 &lt;br&gt; 雖然使用上不能跟專門寫日記的比較，簡陋至少還能用就好了，想說趁這個月有買GPT PLUS就瘋狂用爆吧，新增一堆東西挺酷的(雖然只有我看到而已XD&#13;
 &#13;
-![image](https://blog.</description><guid isPermaLink="true">https://blog.harunoji.one/post/notion-40f40a03f4e880a6b343fa8c1749ac77.html</guid><pubDate>Thu, 05 Nov 2026 12:08:04 +0000</pubDate></item><item><title>網頁預覽驗證（草稿）</title><link>https://blog.harunoji.one/post/notion-40d40a03f4e8817da85fddcdb82f8857.html</link><description>## 預覽標題&#13;
-&#13;
-這是一篇驗證加密預覽的草稿。**粗體**與~~刪除線~~用來檢查文章格式。&#13;
-&#13;
-![image](https://blog.</description><guid isPermaLink="true">https://blog.harunoji.one/post/notion-40d40a03f4e8817da85fddcdb82f8857.html</guid><pubDate>Wed, 04 Nov 2026 17:31:40 +0000</pubDate></item><item><title>2nd400</title><link>https://blog.harunoji.one/post/notion-40e40a03f4e8808d993cddf58937ee34.html</link><description># 網站大改中&#13;
+![image](https://blog.</description><guid isPermaLink="true">https://blog.harunoji.one/post/notion-40f40a03f4e880a6b343fa8c1749ac77.html</guid><pubDate>Thu, 05 Nov 2026 12:08:04 +0000</pubDate></item><item><title>2nd400</title><link>https://blog.harunoji.one/post/notion-40e40a03f4e8808d993cddf58937ee34.html</link><description># 網站大改中&#13;
 &#13;
 自從使用了codex直接上癮，本來追求簡單可以用就好的日記網站，漸漸有了我想要的功能與外觀，玩上癮就是了。主要是寫作頁面直接在notion內處理，一是手機可以隨時隨地上傳(只有單檔限制，上傳占無限制)，所以不用額外把圖片丟到我自己的圖床。不過升級到plus還常常額度用完，不過自己的想要的網站開始成形了，很有趣&#13;
 &#13;
