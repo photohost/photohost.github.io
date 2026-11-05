@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 import shutil
 import sys
+from html import escape, unescape
+from urllib.parse import quote, unquote, urlsplit
 
 from font_pilot import font_head
 
@@ -79,6 +81,33 @@ def version_assets(fragment, assets):
     return ASSET_URL.sub(replace, fragment)
 
 
+def tag_redirect():
+    # Keep old bookmarks working without rendering or loading the retired UI.
+    return '''<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><link rel="canonical" href="/">
+<title>前往首頁標籤</title>
+<script>(()=>{let tag=location.hash.slice(1);try{tag=decodeURIComponent(tag)}catch{}location.replace(tag&&tag!=='All'?'/?tag='+encodeURIComponent(tag):'/')})()</script>
+<noscript><meta http-equiv="refresh" content="0;url=/"></noscript>
+</head><body><a href="/">前往首頁瀏覽文章與標籤</a></body></html>
+'''
+
+
+def homepage_tag_links(html, home_url):
+    def replace(match):
+        prefix, delimiter, href = match.groups()
+        url = urlsplit(unescape(href))
+        if url.netloc and url.netloc != urlsplit(home_url).netloc:
+            return match[0]
+        if url.path not in ('tag.html', '/tag.html', '../tag.html'):
+            return match[0]
+        tag = unquote(url.fragment)
+        target = '/?tag=' + quote(tag, safe='') if tag and tag != 'All' else '/'
+        return prefix + delimiter + escape(target, quote=True) + delimiter
+    return re.sub(r'''(\bhref=)(["'])([^"']*)\2''', replace, html)
+
+
 def html_updates(previous, current, rendered=False):
     old_raw, new_raw = previous["allHead"], current["allHead"]
     old = version_assets(old_raw, previous["assets"])
@@ -87,13 +116,19 @@ def html_updates(previous, current, rendered=False):
     old_script = version_assets(script, previous["assets"])
     new_script = version_assets(script, current["assets"])
     updates = {}
+    homepage_search = '/inline-search.js' in new_raw
     refresh_head = old != new or (rendered and new_raw != new)
-    if not refresh_head and old_script == new_script and not rendered:
+    if not refresh_head and old_script == new_script and not rendered and not homepage_search:
         return updates
     if refresh_head and not old_raw:
         raise ValueError("No previous shared head to replace")
     for path in Path("docs").rglob("*.html"):
         html = path.read_text(encoding="utf-8")
+        if homepage_search and path == Path('docs/tag.html'):
+            updated = tag_redirect()
+            if updated != html:
+                updates[path] = updated
+            continue
         updated = html
         if refresh_head:
             head, separator, body = html.partition("</head>")
@@ -112,6 +147,8 @@ def html_updates(previous, current, rendered=False):
                                          lambda _: new_script, updated, count=1)
                 if count:
                     break
+        if homepage_search:
+            updated = homepage_tag_links(updated, current['config'].get('homeUrl', ''))
         if updated != html:
             updates[path] = updated
     return updates
