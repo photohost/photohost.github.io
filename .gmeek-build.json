@@ -4,6 +4,7 @@
     "title": "終末",
     "subTitle": "願此處乘載唯一真實",
     "avatarUrl": "https://iili.io/q9pxwnR.png",
+    "primerCSS": "<link rel=\"stylesheet\" href=\"/vendor/primer-21.0.7.css\">",
     "GMEEK_VERSION": "50d14d40e7f12a5a20d07f339623dbf72be6b4c2",
     "displayTitle": "終末孤寂",
     "homeUrl": "https://blog.harunoji.one",
@@ -70,6 +71,8 @@
     "site-theme.js": "1b2527e6b2f5bd643740a165866620fc61196b64f1513421ddfe6e0c4d431dc5",
     "starfield.js": "ea7ba264ea222404ac217ed16f687dff8dcbe13e985c68b0d5c5ef76993d0e5f",
     "title-typewriter.js": "93d156a4d47870f9d9fa37df37cd94d8a31b85eb2c3dbad51a70cd208bc732bf",
-    "vendor/gsap.min.js": "2f67b1dc3844f8b6f0a001fa1075c8260a2d4e437efe5bf39ad64896ded58a34"
+    "vendor/gsap.min.js": "2f67b1dc3844f8b6f0a001fa1075c8260a2d4e437efe5bf39ad64896ded58a34",
+    "vendor/primer-21.0.7.LICENSE.txt": "e2719fc6fd67f6d25fea6cc263509bc517460a554248a8b87426e06e51ea4984",
+    "vendor/primer-21.0.7.css": "76d49be5ecf94dcfc6ad4204ceedabf84d5031979e7065cf4e490594f2f3711a"
   }
 }
