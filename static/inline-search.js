@@ -139,6 +139,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const row = document.createElement('a');
         row.className = 'SideNav-item d-flex flex-items-center flex-justify-between';
         row.href = url.href;
+        // Match Gmeek's homepage row structure so shared spacing and previews apply.
+        const center = document.createElement('div');
+        center.className = 'd-flex flex-items-center';
+        const source = [...feed.querySelectorAll(':scope > .SideNav-item')].find(item => item.href === url.href);
+        let icon = source?.querySelector('.SideNav-icon')?.cloneNode(true);
+        if (!icon) {
+            icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            icon.setAttribute('class', 'SideNav-icon octicon');
+            icon.style.width = '16px';
+            icon.style.height = '16px';
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', window.IconList?.post || '');
+            icon.append(path);
+        }
+        icon.setAttribute('aria-hidden', 'true');
         const title = document.createElement('span');
         title.className = 'listTitle';
         title.textContent = post.postTitle;
@@ -147,13 +162,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const badge = (text, color, type) => {
             const element = document.createElement('span');
             element.className = 'Label ' + type;
-            element.textContent = text;
+            if (type === 'LabelName') {
+                const wrapper = document.createElement('object');
+                const link = document.createElement('a');
+                link.href = '/?tag=' + encodeURIComponent(text);
+                link.style.color = '#fff';
+                link.textContent = text;
+                wrapper.append(link);
+                element.append(wrapper);
+            } else {
+                element.textContent = text;
+            }
             element.style.backgroundColor = color || '#666';
             labels.append(element);
         };
         post.labels.forEach(tag => badge(tag, colors[tag], 'LabelName'));
         badge(post.createdDate, post.dateLabelColor, 'LabelTime');
-        row.append(title, labels);
+        center.append(icon, title);
+        row.append(center, labels);
         return row;
     }
     async function search() {
