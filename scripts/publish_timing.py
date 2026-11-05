@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import sys
 import urllib.request
 
 
@@ -26,7 +27,7 @@ def github_json(path):
         return json.load(response)
 
 
-def report():
+def report(complete=False):
     first_step = datetime.now(timezone.utc)
     run_id = os.environ["GITHUB_RUN_ID"]
     repo = os.environ["GITHUB_REPOSITORY"]
@@ -36,9 +37,13 @@ def report():
         jobs = github_json(f"/repos/{repo}/actions/runs/{run_id}/jobs?per_page=20")["jobs"]
         created = parse_time(run.get("created_at", ""))
         job = next((item for item in jobs if item.get("name") == "Sync and generate blog"), None)
+        deploy = next((item for item in jobs if item.get("name") == "Deploy blog"), None)
         started = parse_time(job.get("started_at", "")) if job else None
+        build_done = parse_time(job.get("completed_at", "")) if job else None
+        deploy_started = parse_time(deploy.get("started_at", "")) if deploy else None
+        deploy_done = parse_time(deploy.get("completed_at", "")) if deploy else None
     except (OSError, ValueError, KeyError, StopIteration):
-        created = started = None
+        created = started = build_done = deploy_started = deploy_done = None
 
     def worker_ms(name):
         value = os.environ.get(name, "")
@@ -49,9 +54,17 @@ def report():
         ("Webhook 收到 → 派送 GitHub（含合併等待與忙碌重試）", worker_ms("WEBHOOK_TO_DISPATCH_MS")),
         ("派送 GitHub → 工作建立", seconds(dispatched, created)),
         ("工作建立 → 執行器開始（排隊）", seconds(created, started)),
-        ("執行器開始 → 量測步驟（啟動與取碼）", seconds(started, first_step)),
     ]
-    summary = "## Notion 發布等待時間\n\n此表以這批通知中最早收到的事件為起點；未量到的階段顯示「—」。\n\n"
+    if complete:
+        rows.extend([
+            ("網站建置", seconds(started, build_done)),
+            ("建置完成 → 部署開始（部署排隊）", seconds(build_done, deploy_started)),
+            ("網站部署", seconds(deploy_started, deploy_done)),
+        ])
+    else:
+        rows.append(("執行器開始 → 量測步驟（啟動與取碼）", seconds(started, first_step)))
+    summary = ("## Notion 發布完整時間\n\n" if complete else "## Notion 發布觸發時間\n\n")
+    summary += "此表以這批通知中最早收到的事件為起點；未量到的階段顯示「—」。\n\n"
     summary += "| 階段 | 時間 |\n| --- | ---: |\n"
     summary += "".join(f"| {name} | {duration} |\n" for name, duration in rows)
     print(summary)
@@ -61,4 +74,4 @@ def report():
 
 
 if __name__ == "__main__":
-    report()
+    report("--complete" in sys.argv)
