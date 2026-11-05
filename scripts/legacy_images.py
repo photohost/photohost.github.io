@@ -3,8 +3,10 @@ from concurrent.futures import ThreadPoolExecutor
 from hashlib import sha256
 from html import escape, unescape
 from io import BytesIO
+import json
 from pathlib import Path
 import re
+import time
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
@@ -18,7 +20,9 @@ HOSTS = {
     "p2.bahamut.com.tw", "6ff7c07b.telegraph-image-8st.pages.dev",
 }
 DEST = Path("docs/legacy-image-variants")
+FAILURES = Path("docs/legacy-image-failures.json")
 MAX_INPUT = 8 * 1024 * 1024
+RETRY_AFTER = 7 * 24 * 60 * 60
 
 
 class RestrictedRedirect(HTTPRedirectHandler):
@@ -82,8 +86,30 @@ def prepare_legacy_images():
             url = attrs.get("data-canonical-src") or attrs.get("src", "")
             if urlsplit(url).hostname in HOSTS:
                 sources.add(url)
+    try:
+        failures = json.loads(FAILURES.read_text(encoding="utf-8"))
+        if not isinstance(failures, dict):
+            failures = {}
+    except (OSError, ValueError):
+        failures = {}
+    now = time.time()
+    def needs_retry(url):
+        try:
+            return now - float(failures.get(sha256(url.encode()).hexdigest(), 0)) >= RETRY_AFTER
+        except (TypeError, ValueError):
+            return True
+
+    due = {url for url in sources if needs_retry(url)}
     with ThreadPoolExecutor(max_workers=8) as pool:
-        optimized = dict(zip(sources, pool.map(optimize, sources)))
+        optimized = dict(zip(due, pool.map(optimize, due)))
+    for url in due:
+        key = sha256(url.encode()).hexdigest()
+        if optimized[url]:
+            failures.pop(key, None)
+        else:
+            failures[key] = now
+    if due:
+        FAILURES.write_text(json.dumps(failures, separators=(",", ":")), encoding="utf-8")
     changed = 0
     for page in pages:
         html = page.read_text(encoding="utf-8")
@@ -118,4 +144,4 @@ def prepare_legacy_images():
         updated = IMAGE_TAG.sub(replace, html)
         if updated != html:
             page.write_text(updated, encoding="utf-8")
-    print(f"Legacy images: {changed} optimized references, {len(sources)} source URLs", flush=True)
+    print(f"Legacy images: {changed} optimized references, {len(due)} checked, {len(sources) - len(due)} recent failures skipped", flush=True)
