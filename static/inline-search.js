@@ -35,6 +35,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const status = panel.querySelector('[role=status]');
     const retry = panel.querySelector('button');
     const results = panel.querySelector('nav');
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'feed-retry search-more';
+    more.textContent = '載入更多文章';
+    more.hidden = true;
+    panel.append(more);
+    let matchedPosts = [];
+    let matchedColors = {};
+    let rendered = 0;
+    const resultObserver = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
+        if (entries.some(entry => entry.isIntersecting)) renderMore();
+    }, { rootMargin: '0px 0px 300px 0px' }) : null;
     let selectedTag = new URLSearchParams(location.search).get('tag') || '';
     let opened = false;
     let active = false;
@@ -78,9 +90,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const controller = new AbortController();
                 const timeout = setTimeout(() => controller.abort(), 12000);
                 try {
-                    const response = await fetch('/postList.json', { signal: controller.signal, credentials: 'omit', cache: 'no-cache' });
-                    if (!response.ok) throw new Error('Index unavailable');
-                    const data = await response.json();
+                    let data;
+                    if (window.blogLoadIndex) data = await window.blogLoadIndex();
+                    else {
+                        const response = await fetch('/postList.json', { signal: controller.signal, credentials: 'omit' });
+                        if (!response.ok) throw new Error('Index unavailable');
+                        data = await response.json();
+                    }
                     if (!data || !data.labelColorDict) throw new Error('Invalid index');
                     const posts = Object.values(data).filter(post => Array.isArray(post?.labels) && typeof post.postTitle === 'string' && typeof post.postUrl === 'string');
                     posts.sort((a, b) => String(b.createdDate).localeCompare(String(a.createdDate)));
@@ -139,6 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const row = document.createElement('a');
         row.className = 'SideNav-item d-flex flex-items-center flex-justify-between';
         row.href = url.href;
+        if (post.excerpt) row.dataset.excerpt = post.excerpt;
         // Match Gmeek's homepage row structure so shared spacing and previews apply.
         const center = document.createElement('div');
         center.className = 'd-flex flex-items-center';
@@ -182,6 +199,16 @@ document.addEventListener('DOMContentLoaded', () => {
         row.append(center, labels);
         return row;
     }
+    function renderMore() {
+        if (!active || rendered >= matchedPosts.length) return;
+        const end = Math.min(rendered + 30, matchedPosts.length);
+        const rows = matchedPosts.slice(rendered, end).map(post => makeRow(post, matchedColors)).filter(Boolean);
+        results.append(...rows);
+        rendered = end;
+        more.hidden = rendered >= matchedPosts.length;
+        if (more.hidden) resultObserver?.unobserve(more);
+        else resultObserver?.observe(more);
+    }
     async function search() {
         clearTimeout(timer);
         const current = ++version;
@@ -195,6 +222,10 @@ document.addEventListener('DOMContentLoaded', () => {
         status.textContent = '正在搜尋…';
         panel.setAttribute('aria-busy', 'true');
         results.replaceChildren();
+        resultObserver?.unobserve(more);
+        more.hidden = true;
+        matchedPosts = [];
+        rendered = 0;
         try {
             const { posts, colors } = await getIndex();
             if (current !== version) return;
@@ -204,9 +235,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const haystack = normalize([post.postTitle].concat(post.labels).join(' '));
                 return words.every(word => haystack.includes(word));
             });
-            const rows = matched.map(post => makeRow(post, colors)).filter(Boolean);
-            results.replaceChildren(...rows);
-            status.textContent = rows.length ? `${selectedTag ? selectedTag + ' · ' : ''}找到 ${rows.length} 篇文章` : '找不到符合的文章，請換個關鍵字或點選「全部文章」。';
+            matchedPosts = matched;
+            matchedColors = colors;
+            renderMore();
+            status.textContent = matched.length ? `${selectedTag ? selectedTag + ' · ' : ''}找到 ${matched.length} 篇文章` : '找不到符合的文章，請換個關鍵字或點選「全部文章」。';
         } catch {
             if (current !== version) return;
             status.textContent = '暫時無法讀取文章索引，請重試，或清除搜尋繼續瀏覽。';
@@ -227,6 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     clear.addEventListener('click', () => { chooseTag(''); input.focus(); });
     retry.addEventListener('click', search);
+    more.addEventListener('click', renderMore);
     tagRetry.addEventListener('click', loadTags);
     document.addEventListener('focusin', event => {
         if (opened && !input.value.trim() && !form.contains(event.target) && !options.contains(event.target)) collapse();

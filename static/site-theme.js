@@ -8,27 +8,26 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 /* Frosted panels and public article previews, 2026-11-02. */
 document.addEventListener('DOMContentLoaded', () => {
-    const cache = new Map();
-    async function excerpt(url) {
-        if (!cache.has(url)) {
-            const pending = (async () => {
+    let indexPromise;
+    function loadIndex() {
+        if (!indexPromise) {
+            indexPromise = (async () => {
                 const controller = new AbortController();
                 const timeout = setTimeout(() => controller.abort(), 8000);
                 try {
-                    const response = await fetch(url, { signal: controller.signal, credentials: 'omit' });
-                    if (!response.ok) throw new Error('Article unavailable');
-                    const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
-                    const body = doc.querySelector('#postBody');
-                    if (!body) throw new Error('Article body unavailable');
-                    body.querySelectorAll('script, style, pre, noscript, .anchor').forEach(el => el.remove());
-                    const text = body.textContent.replace(/\s+/g, ' ').trim();
-                    return text ? Array.from(text).slice(0, 160).join('') + (Array.from(text).length > 160 ? '…' : '') : '這篇文章以圖片或程式碼為主，點擊閱讀完整內容。';
+                    const response = await fetch('/postList.json', { signal: controller.signal, credentials: 'omit' });
+                    if (!response.ok) throw new Error('Index unavailable');
+                    return response.json();
                 } finally { clearTimeout(timeout); }
-            })();
-            cache.set(url, pending);
-            pending.catch(() => cache.delete(url));
+            })().catch(error => { indexPromise = null; throw error; });
         }
-        return cache.get(url);
+        return indexPromise;
+    }
+    window.blogLoadIndex = loadIndex;
+    async function excerpt(url) {
+        const index = await loadIndex();
+        const post = Object.values(index).find(post => post?.postUrl && new URL(post.postUrl, location.origin + '/').href === url);
+        return post?.excerpt || '點擊閱讀完整文章。';
     }
     function attach(row) {
         if (row.dataset.previewReady) return;
@@ -46,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (loaded) return;
             preview.textContent = '正在讀取文章摘要…';
             timer = setTimeout(async () => {
-                try { preview.textContent = await excerpt(url.href); loaded = true; }
+                try { preview.textContent = row.dataset.excerpt || await excerpt(url.href); loaded = true; }
                 catch { preview.textContent = '暫時無法取得摘要，點擊閱讀完整文章。'; }
             }, 180);
         }

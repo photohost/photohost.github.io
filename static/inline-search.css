@@ -39,6 +39,8 @@
 #search-results > p { font-size: 14px; color: #555; margin: 0 0 16px; }
 #content .SideNav { min-width: 0; }
 #search-results .SideNav:empty { display: none; }
+#search-results .search-more { display: block; margin: 18px auto 4px; }
+#content > .SideNav > .SideNav-item, #search-results .SideNav-item { content-visibility: auto; contain-intrinsic-size: auto 48px; }
 #content.is-searching > :is(.SideNav, .paginate-container, .feed-loader) { display: none !important; }
 #search-options[hidden], #search-results[hidden], .inline-search [hidden], #search-results [hidden] { display: none !important; }
 @media (max-width: 700px) {
