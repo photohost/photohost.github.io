@@ -37,11 +37,8 @@
 #search-options .search-tag:hover { box-shadow: 0 3px 8px rgba(48,48,48,.2); }
 #search-options [hidden] { display: none !important; }
 #search-results > p { font-size: 14px; color: #555; margin: 0 0 16px; }
-#search-results .SideNav { min-width: 0; }
+#content .SideNav { min-width: 0; }
 #search-results .SideNav:empty { display: none; }
-#search-results .listLabels { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-#search-results .listTitle { min-width: 0; overflow-wrap: anywhere; }
-#search-results .SideNav-item { gap: 16px; }
 #content.is-searching > :is(.SideNav, .paginate-container, .feed-loader) { display: none !important; }
 #search-options[hidden], #search-results[hidden], .inline-search [hidden], #search-results [hidden] { display: none !important; }
 @media (max-width: 700px) {
