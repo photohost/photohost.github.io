@@ -4,7 +4,8 @@
   "properties": {
     "title": "Title", "status": "Status", "tags": "Tags", "date": "日期",
     "slug": "Slug", "issue": "Issue 編號", "url": "網站連結",
-    "result": "同步結果", "synced": "最後同步", "published": "Published"
+    "result": "同步結果", "synced": "最後同步", "published": "Published",
+    "pinned": "置頂"
   },
   "publish_status": "Published",
   "repost_status": "repost",
