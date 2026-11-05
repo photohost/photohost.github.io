@@ -36,7 +36,8 @@ def article(status="Published"):
         "網站連結": {"type": "url", "url": None},
         "同步結果": {"type": "rich_text", "rich_text": []},
         "最後同步": {"type": "date", "date": None},
-        "Published": {"type": "checkbox", "checkbox": False}}}
+        "Published": {"type": "checkbox", "checkbox": False},
+        "置頂": {"type": "checkbox", "checkbox": False}}}
 
 
 def issue(number=42, body="Original", title="Sample"):
@@ -70,14 +71,19 @@ class Notion:
 
 
 class GitHub:
-    def __init__(self, issues=None):
+    def __init__(self, issues=None, pinned=None):
         self.issues = {i["number"]: copy.deepcopy(i) for i in issues or []}
         self.mutations = []
+        self.pinned = set(pinned or [])
 
     def pages(self, path):
         return copy.deepcopy(list(self.issues.values())) if "/issues?" in path else [{"name": "Diary"}]
 
     def call(self, method, path, data=None):
+        if path == "/graphql" and "pinnedIssues" in data["query"]:
+            number = int(data["variables"]["id"].split("_")[1])
+            return {"data": {"node": {"id": data["variables"]["id"], "isPinned": number in self.pinned},
+                             "repository": {"pinnedIssues": {"totalCount": len(self.pinned)}}}}
         if method == "GET":
             if path == "/user": return {"login": "owner"}
             if path == "/repos/owner/repo": return {"full_name": "owner/repo", "permissions": {"admin": True}}
@@ -86,8 +92,18 @@ class GitHub:
             return copy.deepcopy(self.issues[number])
         self.mutations.append((method, path, copy.deepcopy(data)))
         if path == "/graphql":
-            del self.issues[int(data["variables"]["id"].split("_")[1])]
-            return {"data": {"deleteIssue": {"repository": {"nameWithOwner": "owner/repo"}}}}
+            number = int(data["variables"]["id"].split("_")[1])
+            if "deleteIssue" in data["query"]:
+                del self.issues[number]
+                self.pinned.discard(number)
+                return {"data": {"deleteIssue": {"repository": {"nameWithOwner": "owner/repo"}}}}
+            if "unpinIssue" in data["query"]:
+                self.pinned.remove(number)
+                return {"data": {"unpinIssue": {"issue": {"id": data["variables"]["id"]}}}}
+            if "pinIssue" in data["query"]:
+                self.pinned.add(number)
+                return {"data": {"pinIssue": {"issue": {"id": data["variables"]["id"]}}}}
+            raise AssertionError(data)
         if method == "POST" and path.endswith("/issues"):
             number = max(list(self.issues) + [0]) + 1
             self.issues[number] = issue(number, data["body"], data["title"])
@@ -612,6 +628,55 @@ class SyncTests(unittest.TestCase):
         count = len(self.github.mutations)
         sync.publish(self.prepare(sync))
         self.assertEqual(len(self.github.mutations), count)
+
+    def test_pin_only_rebuilds_without_exporting_draft_or_changing_date(self):
+        first = self.deployed()
+        original_body = self.github.issues[1]["body"]
+        original_date = self.notion.page["properties"]["日期"]["date"]["start"]
+        self.notion.page["properties"]["置頂"]["checkbox"] = True
+        self.notion.blocks = [{"type": "unsupported_private_draft"}]
+        second = self.sync(state=ns.read_json(ns.STATE))
+        plan = self.prepare(second)
+        self.assertEqual(plan[0]["action"], "pin")
+        second.publish(plan)
+        second.finalize(True)
+        self.assertEqual(self.github.pinned, {1})
+        self.assertEqual(self.github.issues[1]["body"], original_body)
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], original_date)
+        self.assertEqual(ns.status_name(self.notion.page, CONFIG), "Published")
+        self.assertFalse(self.prepare(self.sync(state=ns.read_json(ns.STATE)))[0]["needs_sync"])
+        self.notion.page["properties"]["置頂"]["checkbox"] = False
+        third = self.sync(state=ns.read_json(ns.STATE))
+        third.publish(self.prepare(third))
+        third.finalize(True)
+        self.assertEqual(self.github.pinned, set())
+        self.assertEqual(self.github.issues[1]["body"], original_body)
+        self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], original_date)
+
+    def test_pin_limit_does_not_replace_existing_pins(self):
+        self.deployed()
+        self.github.pinned = {11, 12, 13}
+        self.notion.page["properties"]["置頂"]["checkbox"] = True
+        second = self.sync(state=ns.read_json(ns.STATE))
+        with self.assertRaisesRegex(ns.SyncError, "最多置頂三篇"):
+            second.publish(self.prepare(second))
+        self.assertEqual(self.github.pinned, {11, 12, 13})
+        self.assertEqual(second.batch, [])
+
+    def test_repost_of_pinned_legacy_issue_keeps_pin(self):
+        legacy = issue(192, "Old legacy article", "2026捨物")
+        self.github = GitHub([legacy], pinned={192})
+        self.notion.page["properties"]["Title"]["title"] = text("2026捨物")
+        self.notion.page["properties"]["Status"]["status"]["name"] = "repost"
+        self.notion.page["properties"]["Issue 編號"]["number"] = 192
+        self.notion.page["properties"]["Slug"]["rich_text"] = text("2026捨物")
+        self.notion.page["properties"]["置頂"]["checkbox"] = True
+        blog = {"postListJson": {"P192": {"postUrl": "post/2026%E6%8D%A8%E7%89%A9.html"}}}
+        sync = self.sync(blog=blog)
+        sync.publish(self.prepare(sync))
+        sync.finalize(True)
+        self.assertEqual(self.github.pinned, {192})
+        self.assertEqual(self.notion.page["properties"]["Slug"]["rich_text"][0]["text"]["content"], "2026捨物")
 
     def test_repost_without_content_changes_acknowledges_and_returns_published(self):
         sync = self.deployed()
