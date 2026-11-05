@@ -40,6 +40,7 @@
     "scripts/legacy_images.py": "2bd4f29fb05a89a8e628b3c819c767c72852ffb6f8ffa9d8deb672ba6c7c9566",
     "scripts/notion_sync.py": "a8c6a84d14ba893546eb0b6254d718977a9421eaec897a62ad0e62d9d03ba73d",
     "scripts/preview_notion.py": "898b1fb5358fbc25b0b458af14e320367b307b6f4df209ce9882acc6e5835020",
+    "scripts/publish_timing.py": "2b66bbaf7f82794cfb80c8933b9fa2d1f46bff7d8a1272132e9bb32e7e7b5016",
     "scripts/site_build.py": "ccef0f44fd4bf11483a45950e05783ba3c2a2bdba855a91cc2ead17999a13847",
     "scripts/sync_notion.py": "b13ad4e5f3cacbcf71f56ea8b5399d0cab9ab944a2981a623095dd7c8b4bc991"
   },
