@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from site_build import can_increment, can_refresh, choose, refresh, save_receipt, version_rendered_pages
+from site_build import can_increment, can_refresh, choose, refresh, save_receipt, version_rendered_pages, homepage_tag_links
 
 
 class SiteBuildTests(unittest.TestCase):
@@ -46,6 +46,35 @@ class SiteBuildTests(unittest.TestCase):
     def update_head(self):
         self.config["allHead"] = "<script src='/reader.js?v=2'></script>"
         self.write("config.json", self.config)
+
+    def test_homepage_search_retires_tag_ui_and_survives_future_refresh(self):
+        self.config['allHead'] += '<script src="/inline-search.js" defer></script>'
+        self.config['homeUrl'] = 'https://blog.example'
+        self.write('config.json', self.config)
+        # Config changes normally trigger a full render. Simulate that output.
+        html = '<html><head>' + self.config['allHead'] + '</head><body><a href="tag.html#%E4%BC%91%E5%81%87">tag</a></body></html>'
+        for filename in ('index.html', 'tag.html', 'post/old.html', 'post/new.html'):
+            Path('docs', filename).write_text(html, encoding='utf-8')
+        Path('static/inline-search.js').write_text('search-v1')
+        version_rendered_pages()
+        save_receipt()
+        redirect = Path('docs/tag.html').read_text(encoding='utf-8')
+        self.assertIn('location.replace', redirect)
+        self.assertNotIn('inline-search.js', redirect)
+        self.assertNotIn('tag.html#', Path('docs/index.html').read_text())
+        self.assertIn('/?tag=%E4%BC%91%E5%81%87', Path('docs/post/old.html').read_text())
+        Path('static/inline-search.js').write_text('search-v2')
+        self.assertTrue(can_refresh())
+        refresh()
+        self.assertEqual(redirect, Path('docs/tag.html').read_text(encoding='utf-8'))
+        self.assertTrue(can_refresh())
+
+    def test_tag_link_rewrite_preserves_external_and_encodes_tag(self):
+        html = '<a href="https://blog.example/tag.html#a%26b">one</a><a href="../tag.html#All">all</a><a href="https://other.example/tag.html#x">external</a>'
+        rewritten = homepage_tag_links(html, 'https://blog.example')
+        self.assertIn('href="/?tag=a%26b"', rewritten)
+        self.assertIn('href="/">all', rewritten)
+        self.assertIn('https://other.example/tag.html#x', rewritten)
 
     def test_frontend_refresh_preserves_bodies_feed_and_index_data(self):
         Path("static/reader.js").write_text("new script")
