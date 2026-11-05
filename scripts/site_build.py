@@ -132,9 +132,9 @@ def html_updates(previous, current, rendered=False):
         updated = html
         if refresh_head:
             head, separator, body = html.partition("</head>")
-            candidates = (old, font_head(path, html, old))
+            candidates = (old, font_head(path, html, old, use_existing=True))
             if rendered:
-                candidates += (old_raw, font_head(path, html, old_raw))
+                candidates += (old_raw, font_head(path, html, old_raw, use_existing=True))
             previous_head = next((item for item in candidates if head.count(item) == 1), None)
             if not separator or previous_head is None:
                 raise ValueError(f"Cannot safely refresh shared head in {path}")
