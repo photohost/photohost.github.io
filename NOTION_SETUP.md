@@ -33,6 +33,12 @@ Notion 寫作 → 手動將 Status 設為 Published → 系統自動同步 GitHu
 - 草稿的置頂設定會在首次發布或 `repost` 時生效。舊文章移入 Notion 時，若原本已置頂，記得勾選「置頂」；〈2026捨物〉已設定。尚未移入 Notion 的舊置頂文章維持原狀。
 - GitHub 最多容許三篇置頂文章。若已滿額，「同步結果」會顯示原因；先取消另一篇置頂後，再等待自動重試。
 
+## 個人主頁 About
+
+blog 資料庫中的 [〈About〉](https://app.notion.com/p/41040a03f4e8800c9aa4ffe2fa3def70) 是指定的個人主頁。首次發布前，先在 Notion 寫好自我介紹，保持 `Draft`；可用與一般文章相同的標題、圖片與格式，必要時先用加密預覽檢查。
+
+完成後將 Status 改為 `Published`。部署成功時，網站產生固定的 `/about.html`，首頁右上的人像圖示連到它；RSS 圖示不再顯示。About 不進入一般文章列表，不需要選 Tags，也不要勾選「置頂」或改動 Slug。日後編輯內容，完成後改為 `repost`；如要下架，改為 `delete`。每次以「同步結果」及「網站連結」確認部署。About 尚未發布時，網站不會顯示通往空白頁面的按鈕。
+
 ## 暫停自動發布與手動預覽
 
 自動發布預設啟用，不需要再按 GitHub 的 Run workflow。要暫停整個資料庫的自動發布，可在 [Actions variables](https://github.com/photohost/photohost.github.io/settings/variables/actions) 新增 Repository variable：

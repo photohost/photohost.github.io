@@ -16,7 +16,7 @@ from build_gmeek import adapted_tree, install_fixed_slugs
 
 CONFIG = json.loads((ROOT / "notion-sync.json").read_text(encoding="utf-8"))
 PID = "11111111-1111-4111-8111-111111111111"
-SITE = {"homeUrl": "https://example.test", "UTC": 8, "singlePage": ["link"]}
+SITE = {"homeUrl": "https://example.test", "UTC": 8, "singlePage": ["link", "about"]}
 FIRST_PUBLICATION = "2026-10-26T09:12:34+08:00"
 SECOND_PUBLICATION = "2026-10-26T15:23:45+08:00"
 
@@ -60,7 +60,7 @@ class Notion:
             return {"results": copy.deepcopy(rows), "has_more": False}
         if "/children?" in path:
             return {"results": copy.deepcopy(self.blocks), "has_more": False}
-        if path == "/pages/" + PID:
+        if path == "/pages/" + self.page["id"]:
             if method == "PATCH":
                 self.mutations.append(copy.deepcopy(data))
                 for name, value in data["properties"].items():
@@ -75,9 +75,11 @@ class GitHub:
         self.issues = {i["number"]: copy.deepcopy(i) for i in issues or []}
         self.mutations = []
         self.pinned = set(pinned or [])
+        self.labels = {"Diary"}
 
     def pages(self, path):
-        return copy.deepcopy(list(self.issues.values())) if "/issues?" in path else [{"name": "Diary"}]
+        return (copy.deepcopy(list(self.issues.values())) if "/issues?" in path else
+                [{"name": name} for name in sorted(self.labels)])
 
     def call(self, method, path, data=None):
         if path == "/graphql" and "pinnedIssues" in data["query"]:
@@ -91,6 +93,9 @@ class GitHub:
             if number not in self.issues: raise ns.APIError(method, path, 410)
             return copy.deepcopy(self.issues[number])
         self.mutations.append((method, path, copy.deepcopy(data)))
+        if method == "POST" and path.endswith("/labels"):
+            self.labels.add(data["name"])
+            return copy.deepcopy(data)
         if path == "/graphql":
             number = int(data["variables"]["id"].split("_")[1])
             if "deleteIssue" in data["query"]:
@@ -107,6 +112,7 @@ class GitHub:
         if method == "POST" and path.endswith("/issues"):
             number = max(list(self.issues) + [0]) + 1
             self.issues[number] = issue(number, data["body"], data["title"])
+            self.issues[number]["labels"] = [{"name": name} for name in data["labels"]]
         elif method == "PATCH":
             number = int(path.rsplit("/", 1)[-1])
             self.issues[number].update(data)
@@ -222,6 +228,47 @@ class SyncTests(unittest.TestCase):
         self.notion.page = article("Published")
         self.assertEqual(len(self.sync().publish_pages()), 1)
         self.assertEqual(self.notion.mutations + self.github.mutations, [])
+
+    def test_about_is_a_standalone_notion_page_with_stable_url(self):
+        about_id = CONFIG["about_page_id"]
+        self.notion.page["id"] = about_id
+        self.notion.page["properties"]["Title"]["title"] = text("About")
+        self.notion.page["properties"]["Tags"]["multi_select"] = []
+        first = self.sync()
+        plan = self.prepare(first)
+        self.assertEqual((plan[0]["slug"], plan[0]["tags"]), ("about", ["about"]))
+        first.publish(plan)
+        first.finalize(True)
+        self.assertEqual(self.github.issues[1]["labels"], [{"name": "about"}])
+        self.assertEqual(self.notion.page["properties"]["網站連結"]["url"], "https://example.test/about.html")
+        self.assertEqual(first.state["pages"][about_id]["slug"], "about")
+        self.notion.page["properties"]["Status"]["status"]["name"] = "repost"
+        self.notion.blocks[0]["paragraph"]["rich_text"] = text("Updated introduction")
+        second = self.sync(state=first.state, blog={"singeListJson": {
+            "P1": {"postUrl": "about.html"}}})
+        second.publish(self.prepare(second))
+        second.finalize(True)
+        self.assertEqual(len(self.github.issues), 1)
+        self.assertEqual(self.notion.page["properties"]["網站連結"]["url"], "https://example.test/about.html")
+        self.notion.page["properties"]["Status"]["status"]["name"] = "delete"
+        third = self.sync(state=second.state, blog={"singeListJson": {
+            "P1": {"postUrl": "about.html"}}})
+        removal = self.prepare(third)
+        self.assertEqual((removal[0]["action"], removal[0]["slug"]), ("delete", "about"))
+        third.publish(removal)
+        third.finalize(True)
+        self.assertIsNone(self.notion.page["properties"]["網站連結"]["url"])
+
+    def test_about_rejects_other_slug_and_pinning(self):
+        self.notion.page["id"] = CONFIG["about_page_id"]
+        self.notion.page["properties"]["Tags"]["multi_select"] = []
+        self.notion.page["properties"]["Slug"]["rich_text"] = text("someone-else")
+        with self.assertRaisesRegex(ns.SyncError, "about.html"):
+            self.prepare(self.sync())
+        self.notion.page["properties"]["Slug"]["rich_text"] = []
+        self.notion.page["properties"]["置頂"]["checkbox"] = True
+        with self.assertRaisesRegex(ns.SyncError, "置頂"):
+            self.prepare(self.sync())
 
     def test_preview_is_remote_read_only_and_escapes_literal_markup(self):
         plan = self.prepare(self.sync())

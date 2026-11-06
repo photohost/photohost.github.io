@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 from urllib.error import HTTPError, URLError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from build_gmeek import install_incremental_build, render_markdown
+from build_gmeek import install_incremental_build, remove_home_rss_button, render_markdown
 from notion_sync import SyncError
 
 
@@ -114,6 +114,35 @@ class IncrementalBuildTests(unittest.TestCase):
             builder = self.builder([{"action": "delete", "issue": 205, "slug": slug}])
             with self.assertRaises(SyncError): builder.runAll()
             builder.createPlistHtml.assert_not_called()
+
+    def test_delete_about_removes_standalone_page_not_regular_article(self):
+        self.previous["singeListJson"]["P205"] = {
+            "postTitle": "About", "postUrl": "about.html"}
+        Path("blogBase.json").write_text(json.dumps(self.previous))
+        Path("docs/about.html").write_text("old biography")
+        Path("docs/post/about.html").write_text("unrelated regular post")
+        builder = self.builder([{"action": "delete", "issue": 205, "slug": "about"}])
+        builder.runAll()
+        self.assertFalse(Path("docs/about.html").exists())
+        self.assertTrue(Path("docs/post/about.html").exists())
+        self.assertEqual(builder.blogBase["singeListJson"], {})
+
+    def test_home_header_removes_rss_button_but_keeps_single_page_slot(self):
+        Path("templates").mkdir()
+        path = Path("templates/plist.html")
+        path.write_text('''    #buttonRSS{display:none;}
+{% for num in blogBase['singeListJson'] %}<a title="{{ blogBase['singeListJson'][num]['postTitle'] }}" href="about.html"><path id="{{ blogBase['singeListJson'][num]['postTitle'] }}"></path></a>{% endfor %}
+<a href="{{ blogBase['homeUrl'] }}/rss.xml" target="_blank" id="buttonRSS" title="RSS"><svg><path id="pathRSS"></path></svg></a>
+document.getElementById("pathRSS").setAttribute("d",IconList["rss"]);
+document.getElementById("{{ blogBase['singeListJson'][num]['postTitle'] }}").setAttribute("d",IconList["about"]);
+''')
+        remove_home_rss_button()
+        html = path.read_text()
+        self.assertIn("singeListJson", html)
+        self.assertNotIn("buttonRSS", html)
+        self.assertNotIn("pathRSS", html)
+        self.assertIn('id="single-page-{{ num }}"', html)
+        self.assertIn("['postTitle']|e", html)
 
     def test_pin_only_updates_index_without_rendering_article(self):
         self.previous["postListJson"]["P205"] = {
