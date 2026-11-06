@@ -95,7 +95,10 @@
     },
     "41040a03-f4e8-8081-bb11-eac044356b60": {
       "issue": 253,
-      "slug": "notion-41040a03f4e88081bb11eac044356b60"
+      "slug": "notion-41040a03f4e88081bb11eac044356b60",
+      "pinned": false,
+      "deployed_fingerprint": "bb3441b89311da2149bc6f61ba1dea34530e85f53dc03a41b4cb7b9a547961d5",
+      "published_at": "2026-11-06T21:15:40+08:00"
     }
   }
 }
