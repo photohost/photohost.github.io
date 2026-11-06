@@ -114,11 +114,13 @@ def install_incremental_build(cls, batch):
                 post = self.blogBase[collection].pop(key, None)
                 if post:
                     from notion_sync import existing_slug
-                    if existing_slug(post) != slug:
+                    single_page = collection == "singeListJson"
+                    if existing_slug(post, single_page=single_page) != slug:
                         raise SyncError("Deleted article URL disagrees with the deployment receipt")
                     filename = re.sub(r'[<>:/\\|?*"\x00-\x1f]', '-', post["postTitle"]) + ".md"
                     (Path(self.backup_dir) / filename).unlink(missing_ok=True)
-            (Path(self.post_dir) / (slug + ".html")).unlink(missing_ok=True)
+                    target = Path(self.root_dir) if single_page else Path(self.post_dir)
+                    (target / (slug + ".html")).unlink(missing_ok=True)
         if deleted:
             # Rebuild RSS from the remaining index, never reuse the pre-delete feed.
             self.oldFeedString = ""
@@ -218,12 +220,38 @@ def add_article_metadata(index, state, batch):
             path.write_text(updated, encoding="utf-8")
 
 
+def remove_home_rss_button():
+    """Keep the upstream feed available, but replace its header slot with About."""
+    path = Path("templates/plist.html")
+    html = path.read_text(encoding="utf-8")
+    html, links = re.subn(
+        r'\s*<a href="\{\{ blogBase\[\'homeUrl\'\] \}\}/rss\.xml"[^>]*\bid="buttonRSS"[^>]*>.*?</a>',
+        "", html, count=1, flags=re.S)
+    html, icons = re.subn(r'^document\.getElementById\("pathRSS"\).*?;\s*\n', "", html,
+                          count=1, flags=re.M)
+    if links != 1 or icons != 1:
+        raise SyncError("Gmeek RSS header template changed; review the About navigation")
+    title = "{{ blogBase['singeListJson'][num]['postTitle'] }}"
+    replacements = {
+        f'title="{title}"': 'title="{{ blogBase[\'singeListJson\'][num][\'postTitle\']|e }}"',
+        f'id="{title}"': 'id="single-page-{{ num }}"',
+        f'document.getElementById("{title}")': 'document.getElementById("single-page-{{ num }}")',
+    }
+    if any(html.count(old) != 1 for old in replacements):
+        raise SyncError("Gmeek single-page header template changed; review the About navigation")
+    for old, new in replacements.items():
+        html = html.replace(old, new, 1)
+    html = html.replace("    #buttonRSS{display:none;}\n", "")
+    path.write_text(html, encoding="utf-8")
+
+
 def main():
     source_path = Path(sys.argv[1]).resolve()
     state = read_json(".notion-sync/state.json", {"pages": {}})
     batch = read_json(BATCH, []) if os.environ.get("SYNC_MODE") == "notion-publish" else None
     # Running from the site checkout preserves static/ across docs/ rebuilds.
     shutil.copytree(source_path.parent / "templates", "templates", dirs_exist_ok=True)
+    remove_home_rss_button()
     reusable = can_increment(copy_assets=batch is not None)
     if batch is not None and not reusable:
         print("Site-wide inputs changed; rebuilding all articles", flush=True)

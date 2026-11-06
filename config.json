@@ -9,7 +9,8 @@
     "faviconUrl": "https://s2.loli.net/2025/05/08/IPvVC9F38KcUH2n.jpg",
     "startSite": "03/26/2024",
     "singlePage": [
-        "link"
+        "link",
+        "about"
     ],
     "commentLabelColor": "#006b75",
     "yearColorList": [

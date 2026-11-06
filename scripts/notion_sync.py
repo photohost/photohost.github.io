@@ -406,8 +406,12 @@ def slug_key(value):
     return unicodedata.normalize("NFC", value).casefold()
 
 
-def existing_slug(post):
+def existing_slug(post, single_page=False):
     path = urllib.parse.unquote(post["postUrl"])
+    if single_page:
+        if path != "about.html":
+            raise SyncError("The About page must keep its existing about.html URL")
+        return "about"
     if not path.startswith("post/") or not path.endswith(".html"):
         raise SyncError("Only regular Gmeek posts can be linked to Notion")
     return valid_slug(path[5:-5])
@@ -484,6 +488,7 @@ class Sync:
         self.delete_github = delete_github
         self.repost_status = config.get("repost_status", "repost")
         self.delete_status = config.get("delete_status", "delete")
+        self.about_page_id = uuid_text(config["about_page_id"]) if config.get("about_page_id") else None
 
     def requested(self, page):
         entry = self.state["pages"].get(uuid_text(page["id"]), {})
@@ -543,6 +548,7 @@ class Sync:
         for page in pages:
             try:
                 pid = uuid_text(page["id"])
+                is_about = pid == self.about_page_id
                 entry = self.state["pages"].get(pid, {})
                 status = status_name(page, self.config)
                 if not self.requested(page):
@@ -555,6 +561,8 @@ class Sync:
                     prepared.append(self.prepare_delete(page, entry, by_number, by_marker))
                     continue
                 desired_pin = self.page_pinned(page)
+                if is_about and desired_pin:
+                    raise SyncError("About 是獨立頁面，請不要勾選置頂")
                 if (status == self.config["publish_status"] and entry.get("deployed_fingerprint")
                         and entry.get("issue") and bool(entry.get("pinned", False)) != desired_pin):
                     number = entry["issue"]
@@ -592,21 +600,27 @@ class Sync:
                         raise SyncError(f"Issue #{number} belongs to a different Notion page")
                     if by_marker.get(pid, {}).get("number", number) != number or number in linked:
                         raise SyncError("Conflicting page-to-Issue mapping")
-                tags = [t["name"] for t in page["properties"][self.p["tags"]]["multi_select"]]
-                if not tags or any(t in self.site.get("singlePage", []) for t in tags):
+                tags = (["about"] if is_about else
+                        [t["name"] for t in page["properties"][self.p["tags"]]["multi_select"]])
+                if not is_about and (not tags or any(t in self.site.get("singlePage", []) for t in tags)):
                     raise SyncError(f"{title}: select at least one article tag; single-page labels are not supported")
                 slug = entry.get("slug")
-                post = self.blog.get("postListJson", {}).get("P" + str(number))
+                collection = "singeListJson" if is_about else "postListJson"
+                post = self.blog.get(collection, {}).get("P" + str(number))
                 if not slug and post:
-                    slug = existing_slug(post)
+                    slug = existing_slug(post, single_page=is_about)
                 if not slug and issue:
                     slug = source_config(issue.get("body")).get("notion_slug")
                 requested = property_text(page, self.p["slug"]).strip()
+                if is_about and requested and requested != "about":
+                    raise SyncError("About 頁面的固定網址是 about.html；Slug 請留空或填 about")
                 if slug and requested and slug != requested:
                     raise SyncError(f"{title}: keep the existing Slug {slug}; changing URLs requires a migration")
                 # Notion page IDs can share their first 12 digits. Use the whole ID
                 # for new URLs, while keeping every previously assigned URL above.
-                slug = valid_slug(slug or requested or "notion-" + pid.replace("-", ""))
+                slug = valid_slug(slug or requested or ("about" if is_about else "notion-" + pid.replace("-", "")))
+                if is_about and slug != "about":
+                    raise SyncError("About 頁面的固定網址必須是 about.html")
                 key = slug_key(slug)
                 if key in occupied and (not number or occupied[key] != number):
                     raise SyncError(f"{title}: Slug is already used by another article")
@@ -670,6 +684,7 @@ class Sync:
 
     def prepare_delete(self, page, entry, by_number, by_marker):
         pid = uuid_text(page["id"])
+        is_about = pid == self.about_page_id
         number = page["properties"][self.p["issue"]].get("number")
         if number is not None and (number != int(number) or number < 1):
             raise SyncError("Issue number must be a positive integer")
@@ -684,14 +699,16 @@ class Sync:
         if by_marker.get(pid, {}).get("number", number) != number:
             raise SyncError("Conflicting page-to-Issue mapping")
         slug = entry.get("slug") or (source_config(issue.get("body")).get("notion_slug") if issue else None)
-        post = self.blog.get("postListJson", {}).get("P" + str(number))
+        post = self.blog.get("singeListJson" if is_about else "postListJson", {}).get("P" + str(number))
         if post:
-            existing = existing_slug(post)
+            existing = existing_slug(post, single_page=is_about)
             if slug and slug != existing:
                 raise SyncError("拒絕刪除：已部署網址與文章對應不一致")
             slug = existing
         if not slug:
             raise SyncError("拒絕刪除：找不到可確認的文章網址")
+        if is_about and slug != "about":
+            raise SyncError("拒絕刪除：About 頁面的網址不一致")
         return {"page_id": pid, "action": "delete", "status": self.delete_status,
                 "issue": number, "slug": valid_slug(slug), "old_issue": issue,
                 "revision": page["last_edited_time"], "needs_sync": True,
@@ -921,7 +938,9 @@ class Sync:
                     props = {self.p["result"]: text_property("已從網站下架並刪除 GitHub Issue" if deleting else "已成功發布至網站"),
                              self.p["published"]: {"checkbox": not deleting},
                              self.p["synced"]: {"date": {"start": dt.datetime.now(dt.timezone.utc).isoformat()}},
-                             self.p["url"]: {"url": None if deleting else self.site["homeUrl"].rstrip("/") + "/post/" + urllib.parse.quote(item["slug"], safe="") + ".html"}}
+                             self.p["url"]: {"url": None if deleting else self.site["homeUrl"].rstrip("/") +
+                                 ("/about.html" if item["page_id"] == self.about_page_id else
+                                  "/post/" + urllib.parse.quote(item["slug"], safe="") + ".html")}}
                 if deleting:
                     props[self.p["issue"]] = {"number": None}
                     props[self.p["pinned"]] = {"checkbox": False}
