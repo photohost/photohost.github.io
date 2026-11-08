@@ -49,6 +49,8 @@ def font_head(path, html, head, use_existing=False):
     parser.feed(html)
     # Include text in all local controls, including typewriter words and status messages.
     for script in Path('static').glob('*.js'):
+        if script.name == 'watch.js':
+            continue  # The standalone viewing wall does not share Gmeek's head.
         parser.characters.update(script.read_text(encoding='utf-8'))
     if path.parent == Path('docs'):
         # All titles/tags share one list-page subset, including subsequent feed pages.

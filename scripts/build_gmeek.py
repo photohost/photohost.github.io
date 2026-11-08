@@ -221,7 +221,7 @@ def add_article_metadata(index, state, batch):
 
 
 def remove_home_rss_button():
-    """Keep the upstream feed available, but replace its header slot with About."""
+    """Keep the feed available, and add the film wall beside Search and About."""
     path = Path("templates/plist.html")
     html = path.read_text(encoding="utf-8")
     html, links = re.subn(
@@ -231,6 +231,16 @@ def remove_home_rss_button():
                           count=1, flags=re.M)
     if links != 1 or icons != 1:
         raise SyncError("Gmeek RSS header template changed; review the About navigation")
+    marker = "    {% for num in blogBase['singeListJson'] -%}"
+    if html.count(marker) != 1:
+        raise SyncError("Gmeek header template changed; review the film navigation")
+    film_link = '''    <a href="{{ blogBase['homeUrl'] }}/watch.html" class="btn btn-invisible circle" title="觀影紀錄" aria-label="觀影紀錄">
+        <svg class="octicon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M2 2.75A1.75 1.75 0 0 1 3.75 1h8.5A1.75 1.75 0 0 1 14 2.75v10.5A1.75 1.75 0 0 1 12.25 15h-8.5A1.75 1.75 0 0 1 2 13.25Zm1.5 0v10.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25V2.75a.25.25 0 0 0-.25-.25h-8.5a.25.25 0 0 0-.25.25ZM5 4.25a.75.75 0 0 1 1.146-.639l4.5 3a.75.75 0 0 1 0 1.248l-4.5 3A.75.75 0 0 1 5 10.25Zm1.5 1.401v3.198L8.899 7.25Z" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+'''
+    html = html.replace(marker, film_link + marker, 1)
     title = "{{ blogBase['singeListJson'][num]['postTitle'] }}"
     replacements = {
         f'title="{title}"': 'title="{{ blogBase[\'singeListJson\'][num][\'postTitle\']|e }}"',
