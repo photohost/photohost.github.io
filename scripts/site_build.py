@@ -123,6 +123,9 @@ def html_updates(previous, current, rendered=False):
     if refresh_head and not old_raw:
         raise ValueError("No previous shared head to replace")
     for path in Path("docs").rglob("*.html"):
+        if path == Path("docs/watch.html"):
+            # The viewing wall is a standalone page with its own head and assets.
+            continue
         html = path.read_text(encoding="utf-8")
         if homepage_search and path == Path('docs/tag.html'):
             updated = tag_redirect()

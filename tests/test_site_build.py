@@ -120,6 +120,15 @@ class SiteBuildTests(unittest.TestCase):
         Path("docs/post/old.html").unlink()
         self.assertFalse(can_refresh())
 
+    def test_standalone_watch_page_survives_gmeek_head_refresh(self):
+        watch = Path("docs/watch.html")
+        watch.write_text('<html><head><link rel="stylesheet" href="/watch.css"></head><body>海報牆</body></html>', encoding="utf-8")
+        before = watch.read_bytes()
+        Path("static/reader.js").write_text("new script")
+        self.assertTrue(can_refresh())
+        refresh()
+        self.assertEqual(watch.read_bytes(), before)
+
     def test_renderer_and_non_head_config_changes_require_full_build(self):
         Path("scripts/build_gmeek.py").write_text("renderer-v2")
         self.assertFalse(can_refresh())

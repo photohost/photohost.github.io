@@ -131,18 +131,20 @@ class IncrementalBuildTests(unittest.TestCase):
         Path("templates").mkdir()
         path = Path("templates/plist.html")
         path.write_text('''    #buttonRSS{display:none;}
-{% for num in blogBase['singeListJson'] %}<a title="{{ blogBase['singeListJson'][num]['postTitle'] }}" href="about.html"><path id="{{ blogBase['singeListJson'][num]['postTitle'] }}"></path></a>{% endfor %}
+    {% for num in blogBase['singeListJson'] -%}<a title="{{ blogBase['singeListJson'][num]['postTitle'] }}" href="about.html"><path id="{{ blogBase['singeListJson'][num]['postTitle'] }}"></path></a>{% endfor %}
 <a href="{{ blogBase['homeUrl'] }}/rss.xml" target="_blank" id="buttonRSS" title="RSS"><svg><path id="pathRSS"></path></svg></a>
 document.getElementById("pathRSS").setAttribute("d",IconList["rss"]);
 document.getElementById("{{ blogBase['singeListJson'][num]['postTitle'] }}").setAttribute("d",IconList["about"]);
 ''')
         remove_home_rss_button()
-        html = path.read_text()
+        html = path.read_text(encoding="utf-8")
         self.assertIn("singeListJson", html)
         self.assertNotIn("buttonRSS", html)
         self.assertNotIn("pathRSS", html)
         self.assertIn('id="single-page-{{ num }}"', html)
         self.assertIn("['postTitle']|e", html)
+        self.assertIn('href="{{ blogBase[\'homeUrl\'] }}/watch.html"', html)
+        self.assertIn('aria-label="觀影紀錄"', html)
 
     def test_pin_only_updates_index_without_rendering_article(self):
         self.previous["postListJson"]["P205"] = {
