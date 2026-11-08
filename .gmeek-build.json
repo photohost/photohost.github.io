@@ -34,15 +34,16 @@
     "script": "<script src='/article-toc.js' defer></script>"
   },
   "renderer": {
-    "scripts/build_gmeek.py": "8559e27bcfec71a66d3d2d1aae7cb5963f59517293b6974d54270e057cab27fc",
+    "scripts/build_gmeek.py": "c3e8de7e06129f5dcb35d4a3a1ab225e8c6a67e5f8442bf15aa7eb62e8cd0191",
+    "scripts/build_watch.py": "efe1ab1df73dfe801474fa4ed1b44bb839df9bcfb3a20276ce8ed16f16dabd4c",
     "scripts/content_excerpts.py": "87ef950f8a5c7fafe2ef7b288b29db0000d1ef9e6fd79950b970a0349eaaa335",
-    "scripts/font_pilot.py": "9680f8fbd1f8d154e48e0b6ee5a8a361566d2e9fbd81f4d70dfac43a9d4548d5",
+    "scripts/font_pilot.py": "b5dfa817781d5afcdfa9051eac5d2836d378d6f2db591f248e1872a7b120f5ae",
     "scripts/image_reading.py": "56292d3aff8c36c7494290d39eb263d8249f82da3b3eddb6d9b95e1e6a0325a6",
     "scripts/legacy_images.py": "2bd4f29fb05a89a8e628b3c819c767c72852ffb6f8ffa9d8deb672ba6c7c9566",
     "scripts/notion_sync.py": "bba270e5b18f8e1bba8d445affdefb1a4f61a472f9832d3e10518e1d19823d0e",
     "scripts/preview_notion.py": "898b1fb5358fbc25b0b458af14e320367b307b6f4df209ce9882acc6e5835020",
     "scripts/publish_timing.py": "2b66bbaf7f82794cfb80c8933b9fa2d1f46bff7d8a1272132e9bb32e7e7b5016",
-    "scripts/site_build.py": "ccef0f44fd4bf11483a45950e05783ba3c2a2bdba855a91cc2ead17999a13847",
+    "scripts/site_build.py": "4168e7e4dfc0e3191d70943107f7b62ce9b606912dbd975a64468ad3cade0839",
     "scripts/sync_notion.py": "b13ad4e5f3cacbcf71f56ea8b5399d0cab9ab944a2981a623095dd7c8b4bc991"
   },
   "allHead": "<script>(()=>{const p=location.pathname;document.documentElement.dataset.blogLayout=p==='/'||p.includes('/index.html')||p.includes('/page')?'list':p.includes('/post/')||p.includes('/link.html')||p.includes('/about.html')?'post':p.includes('/tag')?'search':''})()</script><link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin><link rel=\"preload\" as=\"style\" href=\"https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400..700&amp;family=Noto+Serif+TC:wght@400..700&amp;display=swap\" onload=\"this.rel='stylesheet'\"><noscript><link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400..700&amp;family=Noto+Serif+TC:wght@400..700&amp;display=swap\"></noscript><link rel=\"stylesheet\" href=\"/reading.css\"><script src='/site-theme.js' defer></script><script src='/reader.js' defer></script><script src='/starfield.js' defer></script><script src='/title-typewriter.js' defer></script><style>#avatarImg{display:none}.title-left .blogTitle{display:inline!important}</style><style>.article-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 16px}.article-meta .Label{color:#fff;font-variant-numeric:tabular-nums}.article-meta a{color:inherit}.article-meta a:focus-visible{outline:2px solid currentColor;outline-offset:2px}</style><link rel=\"stylesheet\" href=\"/page-flow.css\"><script src=\"/vendor/gsap.min.js\" defer></script><script src=\"/page-flow.js\" defer></script><link rel=\"stylesheet\" href=\"/inline-search.css\"><script src=\"/inline-search.js\" defer></script><script src=\"/font-fallback.js\" defer></script>",
@@ -79,6 +80,8 @@
     "title-typewriter.js": "93d156a4d47870f9d9fa37df37cd94d8a31b85eb2c3dbad51a70cd208bc732bf",
     "vendor/gsap.min.js": "2f67b1dc3844f8b6f0a001fa1075c8260a2d4e437efe5bf39ad64896ded58a34",
     "vendor/primer-21.0.7.LICENSE.txt": "e2719fc6fd67f6d25fea6cc263509bc517460a554248a8b87426e06e51ea4984",
-    "vendor/primer-21.0.7.css": "76d49be5ecf94dcfc6ad4204ceedabf84d5031979e7065cf4e490594f2f3711a"
+    "vendor/primer-21.0.7.css": "76d49be5ecf94dcfc6ad4204ceedabf84d5031979e7065cf4e490594f2f3711a",
+    "watch.css": "caadd0371d96c6ed8fbdcf31bb65acb8220ba45b572ef7068cfa474d28424912",
+    "watch.js": "16aea70eba1405bdcc9ef9bbffbf8f306ad8086bdc3ebd12340a5f97e458ec22"
   }
 }
