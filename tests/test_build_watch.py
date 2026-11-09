@@ -1,5 +1,6 @@
 import sys
 import unittest
+import hashlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -36,6 +37,11 @@ class WatchWallTests(unittest.TestCase):
         self.assertIn('width="600" height="600"', page)
         self.assertIn('id="watch-typewriter">映畫鑑賞', page)
         self.assertIn('6分以上(含)為推薦，7至8分是我的最愛，9分與10分神作。低於6分者一律大便不推薦', page)
+        static_dir = Path(__file__).resolve().parents[1] / 'static'
+        css_version = hashlib.sha256((static_dir / 'watch.css').read_bytes()).hexdigest()[:10]
+        js_version = hashlib.sha256((static_dir / 'watch.js').read_bytes()).hexdigest()[:10]
+        self.assertIn(f'/watch.css?v={css_version}', page)
+        self.assertIn(f'/watch.js?v={js_version}', page)
 
 
 if __name__ == "__main__":
