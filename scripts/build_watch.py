@@ -139,6 +139,9 @@ def sync_posters(rows):
 
 
 def render(rows):
+    static_dir = Path(__file__).resolve().parents[1] / "static"
+    css_version = hashlib.sha256((static_dir / "watch.css").read_bytes()).hexdigest()[:10]
+    js_version = hashlib.sha256((static_dir / "watch.js").read_bytes()).hexdigest()[:10]
     groups = {}
     for item in rows:
         year = item["date"][:4] if item["date"] else "日期未填"
@@ -155,10 +158,10 @@ def render(rows):
         sections.append(f'<section class="watch-year"><h2>{text(year)}</h2><div class="watch-grid">{"".join(cards)}</div></section>')
     return f'''<!doctype html>
 <html lang="zh-Hant" data-blog-layout="watch"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>觀影紀錄 · 終末</title><meta name="description" content="已看完的電影與劇集觀影紀錄">
+<title>映畫鑑賞 · 終末</title><meta name="description" content="已看完的電影與劇集觀影紀錄">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400..700&amp;family=Noto+Serif+TC:wght@400..700&amp;display=swap">
-<link rel="stylesheet" href="/watch.css"><script src="/starfield.js" defer></script><script src="/watch.js" defer></script></head>
+<link rel="stylesheet" href="/watch.css?v={css_version}"><script src="/starfield.js" defer></script><script src="/watch.js?v={js_version}" defer></script></head>
 <body><main class="watch-shell"><header class="watch-header"><a href="/" class="watch-home" aria-label="映畫鑑賞，回首頁"><span id="watch-typewriter">映畫鑑賞</span></a><a href="/about.html" class="watch-about" aria-label="個人主頁">關於</a></header>
 <h1>觀影紀錄</h1><p class="watch-intro">6分以上(含)為推薦，7至8分是我的最愛，9分與10分神作。低於6分者一律大便不推薦</p><p class="watch-count">已看完的電影與劇集 · {len(rows)} 部</p>
 {"".join(sections) if sections else '<p>目前還沒有已看完的紀錄。</p>'}
