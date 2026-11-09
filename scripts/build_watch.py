@@ -151,8 +151,11 @@ def render(rows):
         cards = []
         for item in entries:
             rating = "未評分" if item["rating"] is None else f"{item['rating']:g} 分"
+            width, height = item.get("width", 400), item.get("height", 600)
+            ratio = width / height
+            shape = "landscape" if ratio > 1.1 else "square" if ratio >= .9 else "portrait"
             cards.append(f'''<button type="button" class="watch-card" data-title="{text(item['title'])}" data-rating="{text(rating)}" data-image="{text(item['image'])}" aria-label="查看 {text(item['title'])} 的海報與評分">
-  <img src="{text(item['image'])}" alt="{text(item['title'])} 海報" loading="lazy" decoding="async" width="{item.get('width', 400)}" height="{item.get('height', 600)}">
+  <span class="watch-poster watch-poster--{shape}"><img src="{text(item['image'])}" alt="{text(item['title'])} 海報" loading="lazy" decoding="async" width="{width}" height="{height}"></span>
   <span class="watch-card-info"><strong>{text(item['title'])}</strong><span>{text(rating)}</span></span>
 </button>''')
         sections.append(f'<section class="watch-year"><h2>{text(year)}</h2><div class="watch-grid">{"".join(cards)}</div></section>')

@@ -43,6 +43,17 @@ class WatchWallTests(unittest.TestCase):
         self.assertIn(f'/watch.css?v={css_version}', page)
         self.assertIn(f'/watch.js?v={js_version}', page)
 
+    def test_poster_orientations_use_consistent_frames(self):
+        items = []
+        for title, width, height in [('直式', 500, 750), ('橫式', 600, 338), ('方形', 600, 600)]:
+            item = movie(row(title=title))
+            item.update(image='/watch-assets/example.webp', width=width, height=height)
+            items.append(item)
+        page = render(items)
+        for shape in ('portrait', 'landscape', 'square'):
+            self.assertIn(f'watch-poster--{shape}', page)
+        self.assertEqual(page.count('class="watch-card-info"'), 3)
+
 
 if __name__ == "__main__":
     unittest.main()
