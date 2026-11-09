@@ -1,4 +1,30 @@
 document.addEventListener('DOMContentLoaded', () => {
+  const word = document.getElementById('watch-typewriter');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  if (word && !reduced.matches) {
+    const letters = Array.from(word.textContent);
+    word.textContent = '';
+    let index = 0;
+    let timer;
+    const type = () => {
+      if (document.hidden) return;
+      word.textContent += letters[index++];
+      if (index < letters.length) timer = setTimeout(type, 140);
+    };
+    timer = setTimeout(type, 140);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && index < letters.length && !reduced.matches) {
+        clearTimeout(timer);
+        timer = setTimeout(type, 140);
+      }
+    });
+    reduced.addEventListener('change', () => {
+      if (reduced.matches) {
+        clearTimeout(timer);
+        word.textContent = letters.join('');
+      }
+    });
+  }
   const dialog = document.getElementById('watch-preview');
   if (!dialog) return;
   const image = dialog.querySelector('img');

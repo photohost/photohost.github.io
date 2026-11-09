@@ -128,6 +128,8 @@ def sync_posters(rows):
             filename = hashlib.sha256(content).hexdigest()[:24] + ".webp"
             (ROOT / filename).write_bytes(content)
         item["image"] = "/watch-assets/" + filename
+        with Image.open(ROOT / filename) as poster:
+            item["width"], item["height"] = poster.size
         next_state[item["id"]] = {"key": key, "file": filename}
     for path in ROOT.glob("*.webp"):
         if path.name not in {entry["file"] for entry in next_state.values()}:
@@ -147,7 +149,7 @@ def render(rows):
         for item in entries:
             rating = "未評分" if item["rating"] is None else f"{item['rating']:g} 分"
             cards.append(f'''<button type="button" class="watch-card" data-title="{text(item['title'])}" data-rating="{text(rating)}" data-image="{text(item['image'])}" aria-label="查看 {text(item['title'])} 的海報與評分">
-  <img src="{text(item['image'])}" alt="{text(item['title'])} 海報" loading="lazy" decoding="async" width="400" height="600">
+  <img src="{text(item['image'])}" alt="{text(item['title'])} 海報" loading="lazy" decoding="async" width="{item.get('width', 400)}" height="{item.get('height', 600)}">
   <span class="watch-card-info"><strong>{text(item['title'])}</strong><span>{text(rating)}</span></span>
 </button>''')
         sections.append(f'<section class="watch-year"><h2>{text(year)}</h2><div class="watch-grid">{"".join(cards)}</div></section>')
@@ -157,8 +159,8 @@ def render(rows):
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400..700&amp;family=Noto+Serif+TC:wght@400..700&amp;display=swap">
 <link rel="stylesheet" href="/watch.css"><script src="/starfield.js" defer></script><script src="/watch.js" defer></script></head>
-<body><main class="watch-shell"><header class="watch-header"><a href="/" class="watch-home" aria-label="回首頁">終末孤寂</a><a href="/about.html" class="watch-about" aria-label="個人主頁">關於</a></header>
-<h1>觀影紀錄</h1><p class="watch-intro">已看完的電影與劇集 · {len(rows)} 部</p>
+<body><main class="watch-shell"><header class="watch-header"><a href="/" class="watch-home" aria-label="映畫鑑賞，回首頁"><span id="watch-typewriter">映畫鑑賞</span></a><a href="/about.html" class="watch-about" aria-label="個人主頁">關於</a></header>
+<h1>觀影紀錄</h1><p class="watch-intro">6分以上(含)為推薦，7至8分是我的最愛，9分與10分神作。低於6分者一律大便不推薦</p><p class="watch-count">已看完的電影與劇集 · {len(rows)} 部</p>
 {"".join(sections) if sections else '<p>目前還沒有已看完的紀錄。</p>'}
 </main><dialog id="watch-preview" aria-label="海報預覽"><button type="button" class="watch-close" aria-label="關閉預覽">×</button><img alt=""><div><strong></strong><span></span></div></dialog></body></html>'''
 
