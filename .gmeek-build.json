@@ -35,7 +35,7 @@
   },
   "renderer": {
     "scripts/build_gmeek.py": "c3e8de7e06129f5dcb35d4a3a1ab225e8c6a67e5f8442bf15aa7eb62e8cd0191",
-    "scripts/build_watch.py": "40e1766b10e06aa743bef5a0baa639bd2338c00a8824abe8fd7beec9f13e32ec",
+    "scripts/build_watch.py": "95212c16e69dfb3a593f0b680569f31b38796d524ca0c2466601bf227c4ff78d",
     "scripts/content_excerpts.py": "87ef950f8a5c7fafe2ef7b288b29db0000d1ef9e6fd79950b970a0349eaaa335",
     "scripts/font_pilot.py": "b5dfa817781d5afcdfa9051eac5d2836d378d6f2db591f248e1872a7b120f5ae",
     "scripts/image_reading.py": "56292d3aff8c36c7494290d39eb263d8249f82da3b3eddb6d9b95e1e6a0325a6",
@@ -167,7 +167,7 @@
     "watch-assets/f9fa5dae7cec885fda7f66d1.webp": "f9fa5dae7cec885fda7f66d12c66732dbbb5e67e50eaf53a8255682fcb3d039b",
     "watch-assets/fdbee063c09222b351acfffd.webp": "fdbee063c09222b351acfffd97ded0209b336f5e34f0a21976a552010b05e919",
     "watch.css": "240bb8b90fd9b1ea027034abe8f6b11a07e11090f258c7939c8f138c39e029c4",
-    "watch.html": "d3682a78414ad5b658cda882c55c123e012b48de49a710af63ce5771238da39c",
+    "watch.html": "4cb3083f439e288e1c9f10286ba7cdba55f9bddcd3fa34c1b99f0dd781016d73",
     "watch.js": "c66c385c8162dea30565a42bf71edb24c6fbd9a568142695e46f97e15e9058aa"
   }
 }
