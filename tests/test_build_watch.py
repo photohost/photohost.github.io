@@ -27,11 +27,15 @@ class WatchWallTests(unittest.TestCase):
     def test_title_is_escaped_in_card_and_preview_data(self):
         item = movie(row())
         item["image"] = "/watch-assets/example.webp"
+        item["width"], item["height"] = 600, 600
         page = render([item])
         self.assertIn("&lt;b&gt;測試&lt;/b&gt;", page)
         self.assertNotIn("<b>測試</b>", page)
         self.assertIn("7.5 分", page)
         self.assertIn("2026", page)
+        self.assertIn('width="600" height="600"', page)
+        self.assertIn('id="watch-typewriter">映畫鑑賞', page)
+        self.assertIn('6分以上(含)為推薦，7至8分是我的最愛，9分與10分神作。低於6分者一律大便不推薦', page)
 
 
 if __name__ == "__main__":
