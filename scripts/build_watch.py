@@ -165,10 +165,10 @@ def render(rows):
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400..700&amp;family=Noto+Serif+TC:wght@400..700&amp;display=swap">
 <link rel="stylesheet" href="/watch.css?v={css_version}"><script src="/starfield.js" defer></script><script src="/watch.js?v={js_version}" defer></script></head>
-<body><main class="watch-shell"><header class="watch-header"><a href="/" class="watch-home" aria-label="映畫鑑賞，回首頁"><span id="watch-typewriter">映畫鑑賞</span></a><a href="/about.html" class="watch-about" aria-label="個人主頁">關於</a></header>
-<h1>觀影紀錄</h1><p class="watch-intro">6分以上(含)為推薦，7至8分是我的最愛，9分與10分神作。低於6分者一律大便不推薦</p><p class="watch-count">已看完的電影與劇集 · {len(rows)} 部</p>
+<body><main class="watch-shell"><header class="watch-header"><h1 class="watch-home"><span id="watch-typewriter">映畫鑑賞</span></h1></header>
+<p class="watch-intro">6分以上(含)為推薦，7至8分是我的最愛，9分與10分神作。低於6分者一律大便不推薦</p><p class="watch-count">已看完的電影與劇集 · {len(rows)} 部</p>
 {"".join(sections) if sections else '<p>目前還沒有已看完的紀錄。</p>'}
-</main><dialog id="watch-preview" aria-label="海報預覽"><button type="button" class="watch-close" aria-label="關閉預覽">×</button><img alt=""><div><strong></strong><span></span></div></dialog></body></html>'''
+</main><div id="watch-preview" class="watch-lightbox" role="dialog" aria-modal="true" aria-label="海報預覽" hidden><div class="watch-lightbox-backdrop" aria-hidden="true"></div><div class="watch-lightbox-panel"><button type="button" class="watch-close" aria-label="關閉預覽">×</button><img class="watch-lightbox-image" alt=""><div class="watch-lightbox-info"><strong></strong><span></span></div></div></div></body></html>'''
 
 
 def main():
