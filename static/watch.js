@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const transformFrom = (rect, base) =>
     `translate(${rect.left - base.left}px, ${rect.top - base.top}px) scale(${rect.width / base.width}, ${rect.height / base.height})`;
 
-  const moveImage = (from, to) => {
+  const moveImage = (from, to, duration = 550) => {
     if (animation) animation.cancel();
     const base = visibleRect(image);
     if (reduced.matches || !base.width || !base.height || !from.width || !to.width) {
@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     animation = image.animate([
       {transform: transformFrom(from, base)},
       {transform: transformFrom(to, base)}
-    ], {duration: 550, easing: 'cubic-bezier(.45,0,.2,1)', fill: 'both'});
+    ], {duration, easing: 'cubic-bezier(.45,0,.2,1)', fill: 'both'});
     return animation.finished.catch(() => {});
   };
 
@@ -70,7 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
     preview.classList.remove('is-open');
     image.removeAttribute('src');
     image.style.visibility = '';
-    card.classList.remove('is-zoomed');
     activeCard = null;
     closing = false;
     if (animation) animation.cancel();
@@ -85,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const current = visibleRect(image);
     const origin = visibleRect(card.querySelector('.watch-poster img'));
     preview.classList.remove('is-open');
-    if (image.style.visibility !== 'hidden') await moveImage(current, origin);
+    if (image.style.visibility !== 'hidden') await moveImage(current, origin, 320);
     finishClose(card);
   };
 
@@ -102,7 +101,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (activeCard !== card || closing) return;
     const origin = visibleRect(card.querySelector('.watch-poster img'));
     const destination = visibleRect(image);
-    card.classList.add('is-zoomed');
     image.style.visibility = '';
     preview.offsetWidth;
     preview.classList.add('is-open');
