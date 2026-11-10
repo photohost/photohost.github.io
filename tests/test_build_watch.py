@@ -36,6 +36,11 @@ class WatchWallTests(unittest.TestCase):
         self.assertIn("2026", page)
         self.assertIn('width="600" height="600"', page)
         self.assertIn('id="watch-typewriter">映畫鑑賞', page)
+        self.assertIn('<h1 class="watch-home">', page)
+        self.assertNotIn('<a href=', page)
+        self.assertNotIn('觀影紀錄</h1>', page)
+        self.assertIn('class="watch-lightbox" role="dialog"', page)
+        self.assertIn('class="watch-lightbox-backdrop"', page)
         self.assertIn('6分以上(含)為推薦，7至8分是我的最愛，9分與10分神作。低於6分者一律大便不推薦', page)
         static_dir = Path(__file__).resolve().parents[1] / 'static'
         css_version = hashlib.sha256((static_dir / 'watch.css').read_bytes()).hexdigest()[:10]
