@@ -2,6 +2,7 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 const fields = 'id, title_zh, title_original, rating, watched_on, poster_key, status, created_at, updated_at, published_at';
 const mediaPath = /^\/media\/([a-f0-9-]{36})$/;
+const adminMediaPath = /^\/api\/admin\/media\/([a-f0-9-]{36})$/;
 const itemPath = /^\/api\/admin\/tickets\/([a-f0-9-]{36})$/;
 const allowedMethods = 'GET, POST, PUT';
 let keyset;
@@ -15,8 +16,25 @@ function error(message, status) {
   return json({ error: message }, status);
 }
 
-function posterUrl(row) {
-  return { ...row, poster_url: row.poster_key ? `/media/${row.poster_key}` : null };
+function posterUrl(row, admin = false) {
+  return { ...row, poster_url: row.poster_key
+    ? `${admin ? '/api/admin' : ''}/media/${row.poster_key}` : null };
+}
+
+async function servePoster(env, key, admin = false) {
+  if (!admin) {
+    const published = await env.DB.prepare(
+      "SELECT 1 FROM tickets WHERE poster_key = ? AND status = 'published' LIMIT 1"
+    ).bind(key).first();
+    if (!published) return error('找不到圖片', 404);
+  }
+  const object = await env.POSTERS.get(`posters/${key}`);
+  if (!object) return error('找不到圖片', 404);
+  return new Response(object.body, { headers: {
+    'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream',
+    'Cache-Control': admin ? 'no-store' : 'public, max-age=300',
+    'X-Content-Type-Options': 'nosniff'
+  } });
 }
 
 function validDate(value) {
@@ -122,9 +140,12 @@ async function handleApi(request, env, path) {
   if (!await isAdmin(request, env)) return error('請先登入管理員帳號', 401);
   if (request.method !== 'GET' && !safeOrigin(request)) return error('請從本網站操作', 403);
 
+  const adminMedia = path.match(adminMediaPath);
+  if (adminMedia && request.method === 'GET') return servePoster(env, adminMedia[1], true);
+
   if (path === '/api/admin/tickets' && request.method === 'GET') {
     const result = await env.DB.prepare(`SELECT ${fields} FROM tickets ORDER BY updated_at DESC`).all();
-    return json({ tickets: result.results.map(posterUrl) });
+    return json({ tickets: result.results.map(row => posterUrl(row, true)) });
   }
   if (path === '/api/admin/tickets' && request.method === 'POST') {
     let ticket;
@@ -163,7 +184,7 @@ async function handleApi(request, env, path) {
     if (!type) return error('請上傳 JPEG、PNG 或 WebP 圖片', 400);
     const id = crypto.randomUUID();
     await env.POSTERS.put(`posters/${id}`, body, { httpMetadata: { contentType: type } });
-    return json({ poster_key: id, poster_url: `/media/${id}` }, 201);
+    return json({ poster_key: id, poster_url: `/api/admin/media/${id}` }, 201);
   }
   return error('找不到頁面或不支援的方法', 404);
 }
@@ -178,15 +199,7 @@ export default {
       }
       if (path.startsWith('/api/')) return await handleApi(request, env, path);
       const media = path.match(mediaPath);
-      if (media && request.method === 'GET') {
-        const object = await env.POSTERS.get(`posters/${media[1]}`);
-        if (!object) return error('找不到圖片', 404);
-        return new Response(object.body, { headers: {
-          'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream',
-          'Cache-Control': 'public, max-age=31536000, immutable',
-          'X-Content-Type-Options': 'nosniff'
-        } });
-      }
+      if (media && request.method === 'GET') return servePoster(env, media[1]);
       if (path.startsWith('/media/')) return error('找不到圖片', 404);
       if (request.method !== 'GET' && request.method !== 'HEAD')
         return new Response('Method Not Allowed', { status: 405, headers: { Allow: allowedMethods } });
