@@ -65,12 +65,17 @@ test('authenticated editor can create, publish and revise a ticket', async t => 
   const rows = new Map();
   const env = {
     TEAM_DOMAIN: issuer, POLICY_AUD: 'ticket-wall', ADMIN_EMAIL: 'owner@example.com',
-    POSTERS: { head: async () => ({}) },
+    POSTERS: {
+      head: async () => ({}),
+      get: async () => ({ body: new Uint8Array([1, 2, 3]), httpMetadata: { contentType: 'image/webp' } })
+    },
     DB: { prepare(sql) {
       return {
         bind(...values) {
           return {
-            first: async () => rows.get(values[0]) || null,
+            first: async () => sql.startsWith('SELECT 1')
+              ? [...rows.values()].find(row => row.poster_key === values[0] && row.status === 'published') || null
+              : rows.get(values[0]) || null,
             run: async () => {
               if (sql.startsWith('INSERT')) {
                 rows.set(values[0], Object.fromEntries(
@@ -99,9 +104,20 @@ test('authenticated editor can create, publish and revise a ticket', async t => 
   assert.equal(draft.status, 201);
   const { id } = await draft.json();
   assert.equal(rows.get(id).status, 'draft');
+  const draftWithImage = await worker.fetch(request(`/api/admin/tickets/${id}`, 'PUT', {
+    ...ready, status: 'draft'
+  }), env);
+  assert.equal(draftWithImage.status, 200);
+  const publicDraftImage = await worker.fetch(new Request(`https://watch.example/media/${ready.poster_key}`), env);
+  assert.equal(publicDraftImage.status, 404);
+  const adminDraftImage = await worker.fetch(request(`/api/admin/media/${ready.poster_key}`, 'GET'), env);
+  assert.equal(adminDraftImage.status, 200);
+  assert.equal(adminDraftImage.headers.get('Cache-Control'), 'no-store');
   const published = await worker.fetch(request(`/api/admin/tickets/${id}`, 'PUT', ready), env);
   assert.equal(published.status, 200);
   assert.equal(rows.get(id).status, 'published');
+  const publicImage = await worker.fetch(new Request(`https://watch.example/media/${ready.poster_key}`), env);
+  assert.equal(publicImage.status, 200);
   const revised = await worker.fetch(request(`/api/admin/tickets/${id}`, 'PUT', {
     ...ready, title_zh: '新標題'
   }), env);
