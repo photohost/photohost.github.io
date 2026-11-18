@@ -11,7 +11,7 @@ const editorTitle = document.getElementById('editor-title');
 const newButton = document.getElementById('new-ticket');
 const search = document.getElementById('ticket-search');
 const listStatus = document.getElementById('list-loading');
-const layout = document.querySelector('.editor-layout');
+const listPanel = list.closest('.list-panel');
 const backButton = document.getElementById('back-to-list');
 let records = [];
 let loaded = false;
@@ -21,11 +21,8 @@ let posterUrl = null;
 let localUrl = null;
 let saving = false;
 let dirty = false;
-let listOffset = 0;
 
 function openEditor() {
-  if (layout.dataset.view === 'list') listOffset = list.scrollTop;
-  layout.dataset.view = 'editor';
   editorTitle.focus({ preventScroll: true });
   if (editorTitle.getBoundingClientRect().top < 0 ||
       editorTitle.getBoundingClientRect().bottom > window.innerHeight) {
@@ -258,11 +255,8 @@ search.addEventListener('input', () => {
   drawList();
 });
 backButton.addEventListener('click', () => {
-  layout.dataset.view = 'list';
-  list.scrollTop = listOffset;
-  const selected = list.querySelector('[aria-current="true"]');
-  (selected || search).focus({ preventScroll: true });
-  layout.scrollIntoView({ block: 'start', behavior: 'instant' });
+  listPanel.scrollIntoView({ block: 'start', behavior: 'instant' });
+  search.focus({ preventScroll: true });
 });
 reset();
 reloadList().catch(cause => {
