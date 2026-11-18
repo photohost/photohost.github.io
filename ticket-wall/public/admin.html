@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css">
-  <script type="module" src="/admin.js"></script>
+  <link rel="stylesheet" href="/style.css?v=ticket-picker">
+  <script type="module" src="/admin.js?v=ticket-picker"></script>
 </head>
 <body>
   <div class="page-shell admin-shell">
@@ -17,11 +17,22 @@
       <h1>票根編輯室</h1>
       <a class="text-link" href="/">查看公開票根牆</a>
     </header>
-    <main class="editor-layout">
+    <main class="editor-layout" data-view="list">
+      <section class="list-panel" aria-labelledby="list-title">
+        <div class="editor-heading">
+          <h2 id="list-title">已儲存的票根</h2>
+          <button id="new-ticket" class="quiet-button" type="button">＋ 新增</button>
+        </div>
+        <label for="ticket-search">搜尋票根</label>
+        <input id="ticket-search" type="search" placeholder="片名、原文片名或觀影日期" autocomplete="off">
+        <p id="list-loading" class="help" role="status">正在讀取…</p>
+        <div id="ticket-list"></div>
+      </section>
+      <div class="editor-workspace">
       <section class="editor-panel" aria-labelledby="editor-title">
         <div class="editor-heading">
-          <h2 id="editor-title">新票根</h2>
-          <button id="new-ticket" class="quiet-button" type="button">新增</button>
+          <h2 id="editor-title" tabindex="-1">新票根</h2>
+          <button id="back-to-list" class="quiet-button" type="button">‹ 票根清單</button>
         </div>
         <form id="ticket-form">
           <label for="title-zh">中文電影名</label>
@@ -52,11 +63,7 @@
         <h2 id="preview-title">票根預覽</h2>
         <div id="preview"></div>
       </section>
-      <section class="list-panel" aria-labelledby="list-title">
-        <h2 id="list-title">已儲存的票根</h2>
-        <p id="list-loading" class="help">正在讀取…</p>
-        <div id="ticket-list"></div>
-      </section>
+      </div>
     </main>
   </div>
 </body>

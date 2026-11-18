@@ -48,10 +48,14 @@ a{color:inherit}
 .notice{padding:10px 12px;border:1px solid #aaa;border-radius:8px;background:#fff;color:#303030;font-size:13px}
 .text-link{text-decoration:none;border-bottom:1px solid #707070;font-size:13px}
 .text-link:hover{border-color:#111}
-.editor-layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:28px;align-items:start;padding-top:28px}
+.editor-layout{display:grid;grid-template-columns:minmax(210px, .75fr) minmax(0, 2.25fr);gap:18px;align-items:start;padding-top:28px}
+.editor-workspace{display:grid;grid-template-columns:minmax(0,1.22fr) minmax(0,1fr);gap:18px;align-items:start;min-width:0}
 .editor-panel,.list-panel{padding:22px;border:1px solid rgba(255,255,255,.75);border-radius:14px;background:rgba(255,255,255,.55)}
 .editor-panel h2,.preview-panel h2,.list-panel h2{margin:0 0 16px;font-size:19px}
-.editor-heading{display:flex;justify-content:space-between;align-items:center}
+.editor-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
+.editor-heading h2{margin:0;overflow-wrap:anywhere}
+#editor-title{scroll-margin-top:20px}
+#back-to-list{display:none;flex:none}
 .editor-panel label{display:block;margin:14px 0 6px;font-size:13px;font-weight:600}
 .editor-panel input:not([type=file]),.editor-panel select{width:100%;min-height:42px;padding:8px 11px;border:1px solid #bdbdb9;border-radius:8px;background:#fff;color:#242424}
 .editor-panel input[type=file]{max-width:100%;font-size:12px}
@@ -63,13 +67,32 @@ a{color:inherit}
 .quiet-button:hover{background:#f6f6f4}.primary-button:hover{background:#444}
 button:disabled{opacity:.55;cursor:wait}
 .preview-panel .ticket{max-width:310px}
-.list-panel{grid-column:1/-1}
-.saved-item{display:flex;align-items:center;justify-content:space-between;width:100%;gap:15px;padding:12px 2px;border:0;border-bottom:1px solid var(--line);background:none;color:inherit;text-align:left}
+.list-panel{position:sticky;top:16px;min-width:0;padding:14px}
+.list-panel label{display:block;margin-bottom:5px;font-size:13px;font-weight:600}
+#ticket-search{width:100%;min-width:0;min-height:42px;padding:8px 10px;border:1px solid #bdbdb9;border-radius:8px;background:#fff;color:var(--ink);font-size:13px}
+#ticket-search:focus-visible{outline:2px solid #333;outline-offset:2px}
+#ticket-list{max-height:clamp(9rem,calc(100vh - 13.5rem),40rem);max-height:clamp(9rem,calc(100dvh - 13.5rem),40rem);overflow:auto;overscroll-behavior:contain;margin-top:6px;padding:3px;scrollbar-gutter:stable}
+.saved-item{display:flex;flex-direction:column;align-items:flex-start;width:100%;gap:3px;padding:10px 8px;border:0;border-bottom:1px solid var(--line);background:none;color:inherit;text-align:left}
 .saved-item:hover{background:rgba(255,255,255,.35)}
+.saved-item[aria-current=true]{background:#fff;box-shadow:inset 3px 0 #555}
 .saved-item small{white-space:nowrap;color:var(--muted)}
-.saved-item strong{font-size:14px}
+.saved-item strong{font-size:14px;overflow-wrap:anywhere}
 .help{margin:6px 0 0}
-@media(max-width:700px){.page-shell{border-radius:0}.editor-layout{grid-template-columns:1fr}.preview-panel{grid-row:2}.preview-panel .ticket{max-width:290px}.ticket-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:15px 11px}.ticket-details{padding:14px 10px}.ticket-names h3{font-size:14px}.ticket-facts strong{font-size:11px}.site-header{align-items:baseline}}
+@media(max-width:999px){.editor-workspace{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:700px){
+  .page-shell{border-radius:0}
+  .editor-layout{grid-template-columns:minmax(0,1fr)}
+  .editor-layout[data-view=list] .editor-workspace,.editor-layout[data-view=editor] .list-panel{display:none}
+  .list-panel{position:static}
+  #back-to-list{display:inline-block}
+  #ticket-search{font-size:16px}
+  .preview-panel .ticket{max-width:290px}
+  .ticket-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:15px 11px}
+  .ticket-details{padding:14px 10px}
+  .ticket-names h3{font-size:14px}
+  .ticket-facts strong{font-size:11px}
+  .site-header{align-items:baseline}
+}
 @media(max-width:390px){.ticket-grid{grid-template-columns:1fr 1fr}.ticket-art{aspect-ratio:4/5}.ticket-facts{gap:3px}}
 @media(max-width:350px){.ticket-facts{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}

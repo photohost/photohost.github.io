@@ -9,17 +9,45 @@ const publishButton = document.getElementById('publish');
 const fileInput = document.getElementById('poster');
 const editorTitle = document.getElementById('editor-title');
 const newButton = document.getElementById('new-ticket');
+const search = document.getElementById('ticket-search');
+const listStatus = document.getElementById('list-loading');
+const layout = document.querySelector('.editor-layout');
+const backButton = document.getElementById('back-to-list');
 let records = [];
+let loaded = false;
 let editingId = null;
 let posterKey = null;
 let posterUrl = null;
 let localUrl = null;
 let saving = false;
+let dirty = false;
+let listOffset = 0;
+
+function openEditor() {
+  if (layout.dataset.view === 'list') listOffset = list.scrollTop;
+  layout.dataset.view = 'editor';
+  editorTitle.focus({ preventScroll: true });
+  if (editorTitle.getBoundingClientRect().top < 0 ||
+      editorTitle.getBoundingClientRect().bottom > window.innerHeight) {
+    editorTitle.scrollIntoView({ block: 'start', behavior: 'instant' });
+  }
+}
+
+function markSelection() {
+  for (const button of list.querySelectorAll('[data-ticket-id]')) {
+    if (button.dataset.ticketId === editingId) button.setAttribute('aria-current', 'true');
+    else button.removeAttribute('aria-current');
+  }
+}
+
+function maySwitch() {
+  return !saving && (!dirty || window.confirm('有尚未儲存的變更。要捨棄這次修改嗎？'));
+}
 
 function setSaving(value) {
   saving = value;
   form.setAttribute('aria-busy', String(value));
-  for (const control of [...form.elements, newButton, ...list.querySelectorAll('button')]) {
+  for (const control of [...form.elements, newButton, backButton, ...list.querySelectorAll('button')]) {
     control.disabled = value;
   }
 }
@@ -49,6 +77,7 @@ function setMessage(text, isError = false) {
 function reset() {
   form.reset();
   editingId = null;
+  dirty = false;
   posterKey = null;
   posterUrl = null;
   if (localUrl) URL.revokeObjectURL(localUrl);
@@ -57,10 +86,12 @@ function reset() {
   draftButton.textContent = '儲存草稿';
   setMessage('');
   updatePreview();
+  markSelection();
 }
 
-function selectTicket(ticket, scroll = true) {
+function selectTicket(ticket) {
   editingId = ticket.id;
+  dirty = false;
   form.elements.title_zh.value = ticket.title_zh || '';
   form.elements.title_original.value = ticket.title_original || '';
   form.elements.kind.value = ticket.kind || '';
@@ -75,7 +106,7 @@ function selectTicket(ticket, scroll = true) {
   draftButton.textContent = ticket.status === 'published' ? '取消發布並存為草稿' : '儲存草稿';
   setMessage('');
   updatePreview();
-  if (scroll) window.scrollTo({ top: 0 });
+  markSelection();
 }
 
 async function api(url, options = {}) {
@@ -88,27 +119,51 @@ async function api(url, options = {}) {
   return result;
 }
 
+function searchable(value) {
+  return String(value ?? '').normalize('NFKC').toLowerCase();
+}
+
 function drawList() {
+  if (!loaded) return;
+  const terms = searchable(search.value).trim().split(/\s+/).filter(Boolean);
+  const matches = records.filter(ticket => {
+    const date = ticket.watched_on || '';
+    const label = searchable([ticket.title_zh || '未命名草稿', ticket.title_original, date, date.replaceAll('-', '/')].join(' '));
+    return terms.every(term => label.includes(term));
+  });
+  const scrollTop = list.scrollTop;
   list.replaceChildren();
-  document.getElementById('list-loading').textContent = records.length ? '' : '尚無已儲存票根。';
-  for (const ticket of records) {
+  listStatus.textContent = terms.length
+    ? (matches.length ? `找到 ${matches.length} 張票根` : '找不到符合的票根。')
+    : (records.length ? `共 ${records.length} 張票根` : '尚無已儲存票根。');
+  for (const ticket of matches) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'saved-item';
+    button.dataset.ticketId = ticket.id;
     button.disabled = saving;
     const title = document.createElement('strong');
     title.textContent = ticket.title_zh || '未命名草稿';
     const info = document.createElement('small');
     info.textContent = `${ticket.status === 'published' ? '已發布' : '草稿'} · ${ticket.watched_on || '日期未填'}`;
     button.append(title, info);
-    button.addEventListener('click', () => selectTicket(ticket));
+    button.addEventListener('click', () => {
+      if (ticket.id !== editingId) {
+        if (!maySwitch()) return;
+        selectTicket(ticket);
+      }
+      openEditor();
+    });
     list.append(button);
   }
+  markSelection();
+  list.scrollTop = scrollTop;
 }
 
 async function reloadList() {
   const result = await api('/api/admin/tickets');
   records = result.tickets;
+  loaded = true;
   drawList();
 }
 
@@ -162,11 +217,12 @@ async function save(status) {
       headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
     });
     editingId = result.id;
+    dirty = false;
     const success = status === 'published' ? '已發布，公開票根牆現在可以看到。' : '草稿已儲存。';
     try {
       await reloadList();
       const saved = records.find(ticket => ticket.id === editingId);
-      if (saved) selectTicket(saved, false);
+      if (saved) selectTicket(saved);
       setMessage(success);
     } catch {
       draftButton.textContent = status === 'published' ? '取消發布並存為草稿' : '儲存草稿';
@@ -179,8 +235,12 @@ async function save(status) {
   }
 }
 
-form.addEventListener('input', updatePreview);
+form.addEventListener('input', () => {
+  dirty = true;
+  updatePreview();
+});
 fileInput.addEventListener('change', () => {
+  dirty = true;
   if (localUrl) URL.revokeObjectURL(localUrl);
   localUrl = fileInput.files[0] ? URL.createObjectURL(fileInput.files[0]) : null;
   updatePreview();
@@ -188,8 +248,23 @@ fileInput.addEventListener('change', () => {
 form.addEventListener('submit', event => event.preventDefault());
 draftButton.addEventListener('click', () => save('draft'));
 publishButton.addEventListener('click', () => save('published'));
-newButton.addEventListener('click', reset);
+newButton.addEventListener('click', () => {
+  if (!maySwitch()) return;
+  reset();
+  openEditor();
+});
+search.addEventListener('input', () => {
+  list.scrollTop = 0;
+  drawList();
+});
+backButton.addEventListener('click', () => {
+  layout.dataset.view = 'list';
+  list.scrollTop = listOffset;
+  const selected = list.querySelector('[aria-current="true"]');
+  (selected || search).focus({ preventScroll: true });
+  layout.scrollIntoView({ block: 'start', behavior: 'instant' });
+});
 reset();
 reloadList().catch(cause => {
-  document.getElementById('list-loading').textContent = cause.message || '無法讀取票根。';
+  listStatus.textContent = cause.message || '無法讀取票根。';
 });
