@@ -16,5 +16,6 @@
     "ADMIN_EMAIL": "REPLACE_WITH_YOUR_EMAIL"
   },
   "workers_dev": true,
+  "routes": [{ "pattern": "movietckt.harunoji.one", "custom_domain": true }],
   "preview_urls": false
 }

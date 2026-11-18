@@ -143,7 +143,7 @@ document.getElementById("{{ blogBase['singeListJson'][num]['postTitle'] }}").set
         self.assertNotIn("pathRSS", html)
         self.assertIn('id="single-page-{{ num }}"', html)
         self.assertIn("['postTitle']|e", html)
-        self.assertIn('href="https://harunoji-ticket-wall.anishare.workers.dev/"', html)
+        self.assertIn('href="https://movietckt.harunoji.one/"', html)
         self.assertIn('aria-label="觀影紀錄"', html)
 
     def test_pin_only_updates_index_without_rendering_article(self):
