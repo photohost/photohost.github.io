@@ -22,6 +22,9 @@ a{color:inherit}
 .ticket-wall-page .intro,.ticket-wall-page .count{color:var(--line)}
 .ticket-wall-page .count{font-size:14px}
 .ticket-wall-page .site-header,.ticket-wall-page .year-group h2{border-color:var(--muted)}
+.wall-edit-link{display:grid;flex:none;align-self:center;place-items:center;width:44px;height:44px;border:1px solid var(--muted);border-radius:50%;background:var(--ink);color:var(--paper)}
+.wall-edit-link:hover{border-color:var(--paper);background:var(--paper);color:var(--ink)}
+.wall-edit-link:focus-visible{outline:2px solid var(--paper);outline-offset:3px}
 .ticket-wall-page .vertical-type{opacity:.38}
 .vertical-type{position:fixed;inset:0;display:grid;grid-template-columns:repeat(5,1.45fr 1fr);align-items:start;overflow:hidden;pointer-events:none;color:var(--line)}
 .vertical-type-track{min-width:0;font-size:clamp(42px,6vw,104px);font-size:min(clamp(42px,6vw,104px),7dvh);font-weight:700;opacity:.36;animation:vertical-type-flow 11s linear infinite}
