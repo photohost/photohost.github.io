@@ -8,6 +8,11 @@ button{cursor:pointer}
 a{color:inherit}
 .page-shell{max-width:1120px;min-height:100vh;margin:0 auto;padding:34px clamp(20px,5vw,60px) 70px;border:1px solid rgba(255,255,255,.45);border-radius:18px;background:var(--glass);box-shadow:0 18px 60px rgba(0,0,0,.28);backdrop-filter:blur(14px)}
 .ticket-wall-page::before{display:none}
+.admin-water-page::before{display:none}
+.admin-water-page{background:radial-gradient(ellipse at 53% 45%,var(--line),var(--ink))}
+#admin-water{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
+.admin-water-page .admin-shell{position:relative;backdrop-filter:none}
+@media(prefers-reduced-motion:reduce){#admin-water{display:none}}
 .ticket-wall-page .page-shell{position:relative;backdrop-filter:none}
 .vertical-type{position:fixed;inset:0;display:grid;grid-template-columns:repeat(5,1.45fr 1fr);align-items:start;overflow:hidden;pointer-events:none;color:var(--line)}
 .vertical-type-track{min-width:0;font-size:clamp(42px,6vw,104px);font-size:min(clamp(42px,6vw,104px),7dvh);font-weight:700;opacity:.36;animation:vertical-type-flow 11s linear infinite}
