@@ -6,7 +6,7 @@ import worker, { validateTicket } from '../src/worker.js';
 
 const ready = {
   title_zh: '墜惡真相', title_original: 'Anatomie d’une chute',
-  rating: 8.5, watched_on: '2026-11-18',
+  rating: 8.5, watched_on: '2026-11-18', kind: 'movie',
   poster_key: 'a6a6a6a6-a6a6-4a6a-8a6a-a6a6a6a6a6a6', status: 'published'
 };
 
@@ -15,12 +15,14 @@ test('published ticket requires its visible details', () => {
   assert.throws(() => validateTicket({ ...ready, poster_key: null }), /圖片/);
   assert.throws(() => validateTicket({ ...ready, rating: 11 }), /評分/);
   assert.throws(() => validateTicket({ ...ready, watched_on: '2026-02-30' }), /日期/);
+  assert.throws(() => validateTicket({ ...ready, kind: 'series' }), /作品類型/);
+  assert.throws(() => validateTicket({ ...ready, kind: '' }), /作品類型/);
 });
 
 test('unfinished ticket can be saved as a draft', () => {
   assert.deepEqual(validateTicket({ status: 'draft' }), {
     title_zh: '', title_original: '', rating: null,
-    watched_on: null, poster_key: null, status: 'draft'
+    watched_on: null, poster_key: null, status: 'draft', kind: null
   });
 });
 
@@ -86,13 +88,13 @@ test('authenticated editor can create, publish and revise a ticket', async t => 
               if (sql.startsWith('INSERT')) {
                 rows.set(values[0], Object.fromEntries(
                   ['id', 'title_zh', 'title_original', 'rating', 'watched_on', 'poster_key',
-                    'status', 'created_at', 'updated_at', 'published_at'].map((key, i) => [key, values[i]])
+                    'status', 'created_at', 'updated_at', 'published_at', 'kind'].map((key, i) => [key, values[i]])
                 ));
               } else {
-                const old = rows.get(values[8]);
+                const old = rows.get(values[9]);
                 Object.assign(old, Object.fromEntries(
                   ['title_zh', 'title_original', 'rating', 'watched_on', 'poster_key',
-                    'status', 'updated_at', 'published_at'].map((key, i) => [key, values[i]])
+                    'status', 'updated_at', 'published_at', 'kind'].map((key, i) => [key, values[i]])
                 ));
               }
             }
@@ -131,10 +133,15 @@ test('authenticated editor can create, publish and revise a ticket', async t => 
   const publicImage = await worker.fetch(new Request(`https://watch.example/media/${ready.poster_key}`), env);
   assert.equal(publicImage.status, 200);
   const revised = await worker.fetch(request(`/api/admin/tickets/${id}`, 'PUT', {
-    ...ready, title_zh: '新標題'
+    ...ready, title_zh: '新標題', kind: 'drama'
   }), env);
   assert.equal(revised.status, 200);
   assert.equal(rows.get(id).title_zh, '新標題');
+  const { kind, ...oldClientBody } = ready;
+  const withoutKind = await worker.fetch(request(`/api/admin/tickets/${id}`, 'PUT', oldClientBody), env);
+  assert.equal(withoutKind.status, 200);
+  const publicWall = await worker.fetch(new Request('https://watch.example/api/tickets'), env);
+  assert.equal((await publicWall.json()).tickets[0].kind, 'drama');
   const foreignOrigin = await worker.fetch(request(`/api/admin/tickets/${id}`, 'PUT', ready, 'https://bad.example'), env);
   assert.equal(foreignOrigin.status, 403);
 });

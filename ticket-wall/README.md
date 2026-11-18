@@ -19,7 +19,7 @@
 
 1. 在選定的 Cloudflare 帳號建立 D1 資料庫及 R2 bucket。將 `wrangler.example.jsonc` 複製為 `wrangler.jsonc`，填入 D1 ID。`wrangler.jsonc` 已被 Git 忽略，因其中包含個人帳號設定。
 2. 在 Cloudflare Zero Trust 建立只允許作者登入的 Access 應用程式，保護 `/admin`、`/admin.html` 和 `/api/admin/*`。將團隊網域、應用程式 AUD 和作者電郵填入 `wrangler.jsonc`。Worker 也會驗證簽章、發行者、AUD 與電郵；設定缺失時管理功能會拒絕存取。
-3. 執行 `npm ci`、`npx wrangler d1 execute harunoji-ticket-wall --remote --file=./schema.sql`、`npx wrangler deploy`。在 DNS 設定獨立觀影頁網域後，再把主網站的觀影連結指向它。
+3. 執行 `npm ci`、`npx wrangler d1 execute harunoji-ticket-wall --remote --file=./schema.sql`、`npx wrangler d1 migrations apply harunoji-ticket-wall --remote`、`npx wrangler deploy`。既有資料庫請先套用遷移，再部署新版。
 4. 先測草稿、發布、重新編輯、取消發布和手機版，再切換主網站入口。
 
 Cloudflare Access 應用程式必須真的在邊緣保護管理路徑。僅有 Worker 裡的 `ADMIN_EMAIL` 設定不會替使用者提供登入畫面。
@@ -31,6 +31,7 @@ Cloudflare Access 應用程式必須真的在邊緣保護管理路徑。僅有 W
 ```text
 npm ci
 npx wrangler d1 execute harunoji-ticket-wall --local --file=./schema.sql
+npx wrangler d1 migrations apply harunoji-ticket-wall --local
 npx wrangler dev --local
 npm test
 ```

@@ -1,6 +1,6 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 
-const fields = 'id, title_zh, title_original, rating, watched_on, poster_key, status, created_at, updated_at, published_at';
+const fields = 'id, title_zh, title_original, rating, watched_on, poster_key, status, created_at, updated_at, published_at, kind';
 const mediaPath = /^\/media\/([a-f0-9-]{36})$/;
 const adminMediaPath = /^\/api\/admin\/media\/([a-f0-9-]{36})$/;
 const itemPath = /^\/api\/admin\/tickets\/([a-f0-9-]{36})$/;
@@ -43,7 +43,7 @@ function validDate(value) {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
-export function validateTicket(input) {
+export function validateTicket(input, previousKind = null) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('資料格式錯誤');
   const title_zh = String(input.title_zh ?? '').trim();
   const title_original = String(input.title_original ?? '').trim();
@@ -61,10 +61,13 @@ export function validateTicket(input) {
   }
   const status = input.status || 'draft';
   if (!['draft', 'published'].includes(status)) throw new Error('狀態格式錯誤');
+  const kind = Object.hasOwn(input, 'kind') ? (input.kind === '' ? null : input.kind) : previousKind;
+  if (kind !== null && !['movie', 'drama'].includes(kind)) throw new Error('作品類型格式錯誤');
   if (status === 'published' && (!title_zh || rating === null || !watched_on || !poster_key)) {
     throw new Error('發布前請填入中文片名、評分、日期與圖片');
   }
-  return { title_zh, title_original, rating, watched_on, poster_key, status };
+  if (status === 'published' && !kind) throw new Error('發布前請選擇作品類型');
+  return { title_zh, title_original, rating, watched_on, poster_key, status, kind };
 }
 
 function imageType(bytes) {
@@ -154,9 +157,9 @@ async function handleApi(request, env, path) {
     if (ticket.poster_key && !await env.POSTERS.head(`posters/${ticket.poster_key}`)) return error('找不到圖片', 400);
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    await env.DB.prepare(`INSERT INTO tickets (${fields}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    await env.DB.prepare(`INSERT INTO tickets (${fields}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(id, ticket.title_zh, ticket.title_original, ticket.rating, ticket.watched_on,
-        ticket.poster_key, ticket.status, now, now, ticket.status === 'published' ? now : null).run();
+        ticket.poster_key, ticket.status, now, now, ticket.status === 'published' ? now : null, ticket.kind).run();
     return json({ id }, 201);
   }
   const match = path.match(itemPath);
@@ -164,16 +167,16 @@ async function handleApi(request, env, path) {
     const old = await env.DB.prepare(`SELECT ${fields} FROM tickets WHERE id = ?`).bind(match[1]).first();
     if (!old) return error('找不到票根', 404);
     let ticket;
-    try { ticket = validateTicket(await readBody(request)); }
+    try { ticket = validateTicket(await readBody(request), old.kind); }
     catch (cause) { return error(cause.message, 400); }
     if (ticket.poster_key && ticket.poster_key !== old.poster_key &&
         !await env.POSTERS.head(`posters/${ticket.poster_key}`)) return error('找不到圖片', 400);
     const now = new Date().toISOString();
     const published_at = ticket.status === 'published' ? old.published_at || now : old.published_at;
     await env.DB.prepare(`UPDATE tickets SET title_zh=?, title_original=?, rating=?, watched_on=?, poster_key=?,
-      status=?, updated_at=?, published_at=? WHERE id=?`)
+      status=?, updated_at=?, published_at=?, kind=? WHERE id=?`)
       .bind(ticket.title_zh, ticket.title_original, ticket.rating, ticket.watched_on,
-        ticket.poster_key, ticket.status, now, published_at, match[1]).run();
+        ticket.poster_key, ticket.status, now, published_at, ticket.kind, match[1]).run();
     return json({ id: match[1] });
   }
   if (path === '/api/admin/posters' && request.method === 'POST') {

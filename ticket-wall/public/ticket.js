@@ -20,6 +20,13 @@ export function ticketElement(data, { preview = false } = {}) {
   details.className = 'ticket-details';
   const names = document.createElement('div');
   names.className = 'ticket-names';
+  if (data.kind === 'movie' || data.kind === 'drama') {
+    const kind = document.createElement('span');
+    kind.className = 'ticket-kind';
+    kind.lang = 'en';
+    kind.textContent = data.kind === 'movie' ? 'Movie' : 'Drama';
+    names.append(kind);
+  }
   const title = document.createElement('h3');
   title.textContent = data.title_zh || '中文電影名';
   const original = document.createElement('p');

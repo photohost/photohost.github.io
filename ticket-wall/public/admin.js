@@ -28,6 +28,7 @@ function fields() {
   return {
     title_zh: form.elements.title_zh.value.trim(),
     title_original: form.elements.title_original.value.trim(),
+    kind: form.elements.kind.value,
     rating: form.elements.rating.value,
     watched_on: form.elements.watched_on.value,
     poster_key: posterKey,
@@ -62,6 +63,7 @@ function selectTicket(ticket, scroll = true) {
   editingId = ticket.id;
   form.elements.title_zh.value = ticket.title_zh || '';
   form.elements.title_original.value = ticket.title_original || '';
+  form.elements.kind.value = ticket.kind || '';
   form.elements.rating.value = ticket.rating ?? '';
   form.elements.watched_on.value = ticket.watched_on || '';
   fileInput.value = '';
@@ -128,6 +130,11 @@ async function compress(file) {
 async function save(status) {
   if (saving) return;
   const data = fields();
+  if (status === 'published' && !data.kind) {
+    setMessage('發布前請選擇作品類型。', true);
+    form.elements.kind.focus();
+    return;
+  }
   if (status === 'published' && (!data.title_zh || data.rating === '' || !data.watched_on || (!fileInput.files[0] && !posterKey))) {
     setMessage('發布前請填入中文片名、評分、日期與圖片。', true);
     return;
@@ -147,7 +154,7 @@ async function save(status) {
       localUrl = null;
     }
     const payload = {
-      title_zh: data.title_zh, title_original: data.title_original,
+      title_zh: data.title_zh, title_original: data.title_original, kind: data.kind,
       rating: data.rating, watched_on: data.watched_on, poster_key: posterKey, status
     };
     const result = await api(editingId ? `/api/admin/tickets/${editingId}` : '/api/admin/tickets', {
