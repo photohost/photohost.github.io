@@ -28,41 +28,14 @@ function startWater(surface, ctx) {
     previous = new Float32Array(width * height);
     frame = ctx.createImageData(width, height);
 
-    const palette = getComputedStyle(document.documentElement);
-    const ink = palette.getPropertyValue('--ink').trim();
-    const line = palette.getPropertyValue('--line').trim();
-    const paper = palette.getPropertyValue('--paper').trim();
+    const palette = getComputedStyle(surface);
     const gradient = artwork.createRadialGradient(width * 0.53, height * 0.45, 0,
       width * 0.53, height * 0.45, Math.max(width, height) * 0.73);
-    gradient.addColorStop(0, paper);
-    gradient.addColorStop(0.55, line);
-    gradient.addColorStop(1, ink);
+    gradient.addColorStop(0, palette.getPropertyValue('--water-center').trim());
+    gradient.addColorStop(0.55, palette.getPropertyValue('--water-mid').trim());
+    gradient.addColorStop(1, palette.getPropertyValue('--water-edge').trim());
     artwork.fillStyle = gradient;
     artwork.fillRect(0, 0, width, height);
-
-    // Draw once. Ripples then bend this text and ticket artwork together.
-    const unit = Math.max(27, Math.min(width * 0.29, height * 0.4, 65));
-    artwork.save();
-    artwork.translate(width * 0.5, height * 0.5);
-    artwork.rotate(-0.24);
-    artwork.lineWidth = Math.max(0.6, unit * 0.022);
-    artwork.strokeStyle = ink;
-    artwork.fillStyle = ink;
-    artwork.font = 'bold ' + (unit * 0.16) + 'px "Noto Serif TC", "PMingLiU", serif';
-    const columns = Math.ceil(Math.hypot(width, height) / (unit * 1.9));
-    const rows = Math.ceil(Math.hypot(width, height) / (unit * 1.25));
-    for (let row = -rows; row <= rows; row++) {
-      for (let col = -columns; col <= columns; col++) {
-        const x = (col + (row % 2) * 0.5) * unit * 1.9;
-        const y = row * unit * 1.25;
-        artwork.globalAlpha = 0.28;
-        artwork.strokeRect(x, y, unit * 1.38, unit * 0.82);
-        artwork.strokeRect(x + unit * 0.09, y + unit * 0.12, unit * 1.2, unit * 0.58);
-        artwork.globalAlpha = 0.46;
-        artwork.fillText('映畫鑑賞', x + unit * 0.18, y + unit * 0.49);
-      }
-    }
-    artwork.restore();
     base = artwork.getImageData(0, 0, width, height);
     ctx.putImageData(base, 0, 0);
     surface.hidden = false;
