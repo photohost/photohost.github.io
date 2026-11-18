@@ -13,7 +13,11 @@ a{color:inherit}
 #admin-water{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 .admin-water-page .admin-shell{position:relative;backdrop-filter:none}
 @media(prefers-reduced-motion:reduce){#admin-water{display:none}}
-.ticket-wall-page .page-shell{position:relative;backdrop-filter:none}
+.ticket-wall-page .page-shell{position:relative;max-width:1340px;padding-inline:clamp(16px,3vw,44px);border:0;border-radius:0;background:none;box-shadow:none;backdrop-filter:none;color:var(--paper)}
+.ticket-wall-page .intro,.ticket-wall-page .count{color:var(--line)}
+.ticket-wall-page .count{font-size:14px}
+.ticket-wall-page .site-header,.ticket-wall-page .year-group h2{border-color:var(--muted)}
+.ticket-wall-page .vertical-type{opacity:.38}
 .vertical-type{position:fixed;inset:0;display:grid;grid-template-columns:repeat(5,1.45fr 1fr);align-items:start;overflow:hidden;pointer-events:none;color:var(--line)}
 .vertical-type-track{min-width:0;font-size:clamp(42px,6vw,104px);font-size:min(clamp(42px,6vw,104px),7dvh);font-weight:700;opacity:.36;animation:vertical-type-flow 11s linear infinite}
 .vertical-type-track:nth-child(even){font-size:clamp(22px,3vw,52px);font-size:min(clamp(22px,3vw,52px),4dvh);font-weight:400;opacity:.26;animation-duration:6s;animation-direction:reverse}
@@ -101,3 +105,20 @@ button:disabled{opacity:.55;cursor:wait}
 @media(max-width:390px){.ticket-grid{grid-template-columns:1fr 1fr}.ticket-art{aspect-ratio:4/5}.ticket-facts{gap:3px}}
 @media(max-width:350px){.ticket-facts{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+.ticket-wall-page .ticket-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,245px),1fr));align-items:stretch;gap:clamp(16px,2vw,25px)}
+.ticket-wall-page .ticket{display:flex;flex-direction:column;color:var(--ink)}
+.ticket-wall-page .ticket-art{aspect-ratio:4/4.8;flex:none}
+.ticket-wall-page .ticket-details{display:flex;flex:1;flex-direction:column;justify-content:space-between;gap:14px;min-height:0;padding:16px}
+.ticket-wall-page .ticket-names{min-height:0}
+.ticket-wall-page .ticket-kind{font-size:12px}
+.ticket-wall-page .ticket-names h3{font-size:clamp(19px,1.5vw,22px)}
+.ticket-wall-page .ticket-names p{font-size:14px;line-height:1.5}
+.ticket-wall-page .ticket-facts{grid-template-columns:1fr auto;gap:8px}
+.ticket-wall-page .ticket-facts span{font-size:13px}
+.ticket-wall-page .ticket-facts strong{font-size:16px}
+#wall-end{display:grid;place-items:center;min-height:44px}
+.wall-loading:not([hidden]){display:flex;align-items:center;gap:10px;margin:0}
+.wall-loading span{width:18px;height:18px;border:2px solid var(--muted);border-top-color:var(--paper);border-radius:50%;animation:wall-spin .75s linear infinite}
+@keyframes wall-spin{to{transform:rotate(1turn)}}
+@media(prefers-reduced-motion:reduce){.wall-loading span{animation:none}}

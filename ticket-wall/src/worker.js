@@ -1,6 +1,8 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 const fields = 'id, title_zh, title_original, rating, watched_on, poster_key, status, created_at, updated_at, published_at, kind';
+const publicOrder = 'watched_on DESC, published_at DESC, id DESC';
+const wallPageSize = 12;
 const mediaPath = /^\/media\/([a-f0-9-]{36})$/;
 const adminMediaPath = /^\/api\/admin\/media\/([a-f0-9-]{36})$/;
 const itemPath = /^\/api\/admin\/tickets\/([a-f0-9-]{36})$/;
@@ -134,9 +136,31 @@ function safeOrigin(request) {
 
 async function handleApi(request, env, path) {
   if (path === '/api/tickets' && request.method === 'GET') {
-    const result = await env.DB.prepare(
-      `SELECT ${fields} FROM tickets WHERE status = 'published' ORDER BY watched_on DESC, published_at DESC, id DESC`
-    ).all();
+    const params = new URL(request.url).searchParams;
+    const select = `SELECT ${fields} FROM tickets WHERE status = 'published'`;
+    if (params.get('view') === 'wall') {
+      const before = params.get('before');
+      const cursor = before?.split('|');
+      if (cursor && (cursor.length !== 3 || !validDate(cursor[0]) ||
+          !/^([\dTZ:.-]{1,32})?$/.test(cursor[1]) || !/^[a-f0-9-]{1,36}$/.test(cursor[2]))) {
+        return error('票根分頁位置無效', 400);
+      }
+      const query = `${select}${cursor ? " AND (watched_on, COALESCE(published_at, ''), id) < (?, ?, ?)" : ''}
+        ORDER BY ${publicOrder} LIMIT ?`;
+      const page = env.DB.prepare(query).bind(...(cursor || []), wallPageSize + 1).all();
+      const count = cursor ? null : env.DB.prepare(
+        "SELECT COUNT(*) AS total FROM tickets WHERE status = 'published'"
+      ).first();
+      const [{ results }, summary] = await Promise.all([page, count]);
+      const rows = results.slice(0, wallPageSize);
+      const last = rows.at(-1);
+      return json({
+        tickets: rows.map(row => posterUrl(row)),
+        next: results.length > wallPageSize ? [last.watched_on, last.published_at, last.id].join('|') : null,
+        ...(summary && { total: summary.total })
+      });
+    }
+    const result = await env.DB.prepare(`${select} ORDER BY ${publicOrder}`).all();
     return json({ tickets: result.results.map(row => posterUrl(row)) });
   }
   if (!path.startsWith('/api/admin/')) return error('找不到頁面', 404);
