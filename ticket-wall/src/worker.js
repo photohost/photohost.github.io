@@ -193,9 +193,14 @@ export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
     try {
-      if (path === '/admin' || path === '/admin.html') {
+      if (path === '/admin' || path === '/admin.html' || path === '/admin/') {
         if (!await isAdmin(request, env)) return error('請先登入管理員帳號', 401);
-        return env.ASSETS.fetch(new Request(new URL('/admin.html', request.url), request));
+        // Static Assets serves admin.html at /admin. Fetching /admin.html
+        // returns a redirect to /admin, which would restart this handler.
+        const page = await env.ASSETS.fetch(new Request(new URL('/admin', request.url), request));
+        const headers = new Headers(page.headers);
+        headers.set('Cache-Control', 'no-store');
+        return new Response(page.body, { status: page.status, headers });
       }
       if (path.startsWith('/api/')) return await handleApi(request, env, path);
       const media = path.match(mediaPath);

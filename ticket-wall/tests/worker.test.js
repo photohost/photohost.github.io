@@ -41,7 +41,7 @@ test('public wall returns public poster URLs for every published row', async () 
 
 test('editor and write API fail closed without Cloudflare Access', async () => {
   const env = { ASSETS: { fetch: () => { throw new Error('must not serve admin'); } } };
-  for (const path of ['/admin', '/admin.html', '/api/admin/tickets', '/api/admin/posters']) {
+  for (const path of ['/admin', '/admin.html', '/admin/', '/api/admin/tickets', '/api/admin/posters']) {
     const response = await worker.fetch(new Request(`https://watch.example${path}`), env);
     assert.equal(response.status, 401, path);
   }
@@ -68,6 +68,9 @@ test('authenticated editor can create, publish and revise a ticket', async t => 
   const rows = new Map();
   const env = {
     TEAM_DOMAIN: issuer, POLICY_AUD: 'ticket-wall', ADMIN_EMAIL: 'owner@example.com',
+    ASSETS: { fetch: async asset => new URL(asset.url).pathname === '/admin'
+      ? new Response('票根編輯室')
+      : Response.redirect('https://watch.example/admin', 307) },
     POSTERS: {
       head: async () => ({}),
       get: async () => ({ body: new Uint8Array([1, 2, 3]), httpMetadata: { contentType: 'image/webp' } })
@@ -103,6 +106,12 @@ test('authenticated editor can create, publish and revise a ticket', async t => 
     method, headers: { Origin: origin, 'Content-Type': 'application/json',
       'Cf-Access-Jwt-Assertion': token }, body: JSON.stringify(body)
   });
+  for (const path of ['/admin', '/admin.html', '/admin/']) {
+    const editor = await worker.fetch(request(path, 'GET'), env);
+    assert.equal(editor.status, 200, path);
+    assert.equal(await editor.text(), '票根編輯室');
+    assert.equal(editor.headers.get('Cache-Control'), 'no-store');
+  }
   const draft = await worker.fetch(request('/api/admin/tickets', 'POST', { status: 'draft' }), env);
   assert.equal(draft.status, 201);
   const { id } = await draft.json();
