@@ -134,7 +134,7 @@ async function handleApi(request, env, path) {
     const result = await env.DB.prepare(
       `SELECT ${fields} FROM tickets WHERE status = 'published' ORDER BY watched_on DESC, published_at DESC, id DESC`
     ).all();
-    return json({ tickets: result.results.map(posterUrl) });
+    return json({ tickets: result.results.map(row => posterUrl(row)) });
   }
   if (!path.startsWith('/api/admin/')) return error('找不到頁面', 404);
   if (!await isAdmin(request, env)) return error('請先登入管理員帳號', 401);

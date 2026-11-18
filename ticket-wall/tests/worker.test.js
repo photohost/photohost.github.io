@@ -24,15 +24,18 @@ test('unfinished ticket can be saved as a draft', () => {
   });
 });
 
-test('public wall returns only published rows from the query', async () => {
-  const rows = [{ ...ready, id: '1' }];
+test('public wall returns public poster URLs for every published row', async () => {
+  const secondPoster = 'b7b7b7b7-b7b7-4b7b-8b7b-b7b7b7b7b7b7';
+  const rows = [{ ...ready, id: '1' }, { ...ready, id: '2', poster_key: secondPoster }];
   let sql = '';
   const env = { DB: { prepare(query) { sql = query; return { all: async () => ({ results: rows }) }; } } };
   const response = await worker.fetch(new Request('https://watch.example/api/tickets'), env);
   assert.equal(response.status, 200);
   assert.match(sql, /WHERE status = 'published'/);
   const { tickets } = await response.json();
-  assert.equal(tickets[0].poster_url, `/media/${ready.poster_key}`);
+  assert.deepEqual(tickets.map(ticket => ticket.poster_url), [
+    `/media/${ready.poster_key}`, `/media/${secondPoster}`
+  ]);
   assert.equal(response.headers.get('Cache-Control'), 'no-store');
 });
 

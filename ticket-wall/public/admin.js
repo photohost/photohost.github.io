@@ -8,11 +8,21 @@ const draftButton = document.getElementById('save-draft');
 const publishButton = document.getElementById('publish');
 const fileInput = document.getElementById('poster');
 const editorTitle = document.getElementById('editor-title');
+const newButton = document.getElementById('new-ticket');
 let records = [];
 let editingId = null;
 let posterKey = null;
 let posterUrl = null;
 let localUrl = null;
+let saving = false;
+
+function setSaving(value) {
+  saving = value;
+  form.setAttribute('aria-busy', String(value));
+  for (const control of [...form.elements, newButton, ...list.querySelectorAll('button')]) {
+    control.disabled = value;
+  }
+}
 
 function fields() {
   return {
@@ -48,7 +58,7 @@ function reset() {
   updatePreview();
 }
 
-function selectTicket(ticket) {
+function selectTicket(ticket, scroll = true) {
   editingId = ticket.id;
   form.elements.title_zh.value = ticket.title_zh || '';
   form.elements.title_original.value = ticket.title_original || '';
@@ -63,11 +73,14 @@ function selectTicket(ticket) {
   draftButton.textContent = ticket.status === 'published' ? '取消發布並存為草稿' : '儲存草稿';
   setMessage('');
   updatePreview();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (scroll) window.scrollTo({ top: 0 });
 }
 
 async function api(url, options = {}) {
   const response = await fetch(url, { cache: 'no-store', ...options });
+  if (response.redirected || response.status === 401 || response.status === 403) {
+    throw new Error('目前無法驗證登入，請重新開啟編輯頁。');
+  }
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || `請求失敗（${response.status}）`);
   return result;
@@ -80,6 +93,7 @@ function drawList() {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'saved-item';
+    button.disabled = saving;
     const title = document.createElement('strong');
     title.textContent = ticket.title_zh || '未命名草稿';
     const info = document.createElement('small');
@@ -112,13 +126,13 @@ async function compress(file) {
 }
 
 async function save(status) {
+  if (saving) return;
   const data = fields();
   if (status === 'published' && (!data.title_zh || data.rating === '' || !data.watched_on || (!fileInput.files[0] && !posterKey))) {
     setMessage('發布前請填入中文片名、評分、日期與圖片。', true);
     return;
   }
-  draftButton.disabled = true;
-  publishButton.disabled = true;
+  setSaving(true);
   setMessage('正在儲存…');
   try {
     if (fileInput.files[0]) {
@@ -141,15 +155,20 @@ async function save(status) {
       headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
     });
     editingId = result.id;
-    await reloadList();
-    const saved = records.find(ticket => ticket.id === editingId);
-    if (saved) selectTicket(saved);
-    setMessage(status === 'published' ? '已發布，公開票根牆現在可以看到。' : '草稿已儲存。');
+    const success = status === 'published' ? '已發布，公開票根牆現在可以看到。' : '草稿已儲存。';
+    try {
+      await reloadList();
+      const saved = records.find(ticket => ticket.id === editingId);
+      if (saved) selectTicket(saved, false);
+      setMessage(success);
+    } catch {
+      draftButton.textContent = status === 'published' ? '取消發布並存為草稿' : '儲存草稿';
+      setMessage(`${success}清單暫時無法更新，重新整理後可查看。`);
+    }
   } catch (cause) {
     setMessage(cause.message || '儲存失敗，請稍後重試。', true);
   } finally {
-    draftButton.disabled = false;
-    publishButton.disabled = false;
+    setSaving(false);
   }
 }
 
@@ -162,7 +181,7 @@ fileInput.addEventListener('change', () => {
 form.addEventListener('submit', event => event.preventDefault());
 draftButton.addEventListener('click', () => save('draft'));
 publishButton.addEventListener('click', () => save('published'));
-document.getElementById('new-ticket').addEventListener('click', reset);
+newButton.addEventListener('click', reset);
 reset();
 reloadList().catch(cause => {
   document.getElementById('list-loading').textContent = cause.message || '無法讀取票根。';
