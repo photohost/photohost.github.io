@@ -423,7 +423,7 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(ns.source_config(self.github.issues[1]["body"])["timestamp"], 1792944000)
         self.assertEqual(self.notion.page["properties"]["日期"]["date"]["start"], FIRST_PUBLICATION)
 
-    def test_removed_override_during_retry_returns_to_current_publication_time(self):
+    def test_removed_override_during_retry_returns_to_first_publication_time(self):
         self.notion.blocks.append(self.timestamp_footer())
         sync = self.sync()
         sync.publish(self.prepare(sync))
@@ -435,7 +435,7 @@ class SyncTests(unittest.TestCase):
         retry.finalize(True)
         meta = ns.source_config(self.github.issues[1]["body"])
         self.assertNotIn("notion_timestamp_override", meta)
-        self.assertEqual(meta["timestamp"], int(self.clock.return_value.timestamp()))
+        self.assertEqual(meta["timestamp"], int(ns.dt.datetime.fromisoformat(FIRST_PUBLICATION).timestamp()))
         self.assertEqual(meta["notion_published_at"], SECOND_PUBLICATION)
 
     def test_changed_override_during_retry_uses_new_date_and_publication_time(self):
@@ -738,8 +738,41 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(ns.status_name(self.notion.page, CONFIG), "Published")
         date = self.notion.page["properties"]["日期"]["date"]["start"]
         self.assertEqual(date, SECOND_PUBLICATION)
-        self.assertEqual(ns.source_config(self.github.issues[1]["body"])["timestamp"],
-                         int(ns.dt.datetime.fromisoformat(date).timestamp()))
+        meta = ns.source_config(self.github.issues[1]["body"])
+        # Notion shows this run; the site keeps the first publication date.
+        self.assertEqual(meta["notion_published_at"], SECOND_PUBLICATION)
+        self.assertEqual(meta["timestamp"], int(ns.dt.datetime.fromisoformat(FIRST_PUBLICATION).timestamp()))
+        self.assertEqual(meta["notion_first_timestamp"], meta["timestamp"])
+
+    def test_repost_with_footer_override_changes_site_date_and_removing_it_restores_first(self):
+        sync = self.deployed()
+        self.notion.blocks.append(self.timestamp_footer(1793030400))
+        self.clock.return_value = ns.dt.datetime.fromisoformat(SECOND_PUBLICATION)
+        self.set_status("repost")
+        second = self.sync(state=sync.state)
+        second.publish(self.prepare(second))
+        second.finalize(True)
+        meta = ns.source_config(self.github.issues[1]["body"])
+        self.assertEqual(meta["timestamp"], 1793030400)
+        first = int(ns.dt.datetime.fromisoformat(FIRST_PUBLICATION).timestamp())
+        self.assertEqual(meta["notion_first_timestamp"], first)
+        self.notion.blocks.pop()
+        self.set_status("repost")
+        third = self.sync(state=second.state)
+        third.publish(self.prepare(third))
+        third.finalize(True)
+        self.assertEqual(ns.source_config(self.github.issues[1]["body"])["timestamp"], first)
+
+    def test_first_date_for_existing_issues_without_the_new_key(self):
+        now = 1795000000
+        first = ns.first_site_timestamp
+        self.assertEqual(first({"notion_first_timestamp": 5}, None, now), 5)
+        self.assertEqual(first({"notion_published_at": "2026-10-26T09:12:34+08:00"}, None, now),
+                         int(ns.dt.datetime.fromisoformat("2026-10-26T09:12:34+08:00").timestamp()))
+        self.assertEqual(first({"timestamp": 1712000000}, None, now), 1712000000)
+        self.assertEqual(first({"timestamp": 1712000000, "notion_timestamp_override": 1712000000}, None, now), now)
+        self.assertEqual(first({}, {"created_at": "2024-04-01T00:00:00Z"}, now), 1711929600)
+        self.assertEqual(first({"notion_first_timestamp": True}, None, now), now)
 
     def test_empty_date_is_filled_after_first_publication(self):
         self.notion.page["properties"]["日期"]["date"] = None
