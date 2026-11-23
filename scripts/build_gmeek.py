@@ -1,6 +1,6 @@
 """Run upstream Gmeek with stable filenames for Notion-managed Issues."""
 import ast
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from html import escape
 import json
 import os
@@ -205,7 +205,15 @@ def add_article_metadata(index, state, batch):
         date = post["createdDate"]
         timestamp = published.get(int(key.removeprefix("P")))
         if timestamp:
-            date = datetime.fromisoformat(timestamp).strftime("%Y-%m-%d %H:%M")
+            # Gmeek's createdAt carries the site date: the actual publish time, or
+            # the article's own date when a timestamp override is set. Prefer it so the
+            # article page matches the list and sort order.
+            created = post.get("createdAt")
+            if isinstance(created, (int, float)) and not isinstance(created, bool):
+                zone = timezone(timedelta(hours=index.get("UTC", 8)))
+                date = datetime.fromtimestamp(created, zone).strftime("%Y-%m-%d %H:%M")
+            else:
+                date = datetime.fromisoformat(timestamp).strftime("%Y-%m-%d %H:%M")
         badges = [badge(date, post["dateLabelColor"])]
         badges.extend(badge(label, colors.get(label, "#595959"), "/tag.html#" + quote(label, safe=""))
                       for label in post["labels"])
