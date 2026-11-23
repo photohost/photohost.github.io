@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 from urllib.error import HTTPError, URLError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from build_gmeek import install_incremental_build, remove_home_rss_button, render_markdown
+from build_gmeek import add_article_metadata, install_incremental_build, remove_home_rss_button, render_markdown
 from notion_sync import SyncError
 
 
@@ -212,3 +212,30 @@ class MarkdownRetryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ArticleDateLabelTests(unittest.TestCase):
+    def render(self, created_at):
+        with tempfile.TemporaryDirectory() as temp:
+            old = Path.cwd()
+            os.chdir(temp)
+            try:
+                Path("docs/post").mkdir(parents=True)
+                Path("docs/post/a.html").write_text('<body>\n    <div id="content">x</div>')
+                index = {"UTC": 8, "labelColorDict": {}, "postListJson": {"P7": {
+                    "htmlDir": "docs/post/a.html", "createdDate": "2026-02-17", "createdAt": created_at,
+                    "dateLabelColor": "#1f883d", "labels": []}}}
+                add_article_metadata(index, {"pages": {}},
+                                     [{"issue": 7, "published_at": "2026-11-24T00:12:40+08:00"}])
+                return Path("docs/post/a.html").read_text()
+            finally:
+                os.chdir(old)
+
+    def test_timestamp_override_is_shown_not_actual_publish_time(self):
+        html = self.render(1771257600)
+        self.assertIn("2026-02-17 00:00", html)
+        self.assertNotIn("2026-11-24", html)
+
+    def test_without_override_created_at_is_the_publish_time(self):
+        html = self.render(1795450360)  # 2026-11-24 00:12:40 +08:00
+        self.assertIn("2026-11-24 00:12", html)
