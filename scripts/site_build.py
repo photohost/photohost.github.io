@@ -215,7 +215,7 @@ def refresh():
 def choose():
     event = os.environ.get("EVENT", "")
     mode = os.environ.get("INPUT_MODE") or "build"
-    if event == "schedule" and os.environ.get("EVENT_SCHEDULE") != "0 16 * * *":
+    if event == "schedule" and os.environ.get("EVENT_SCHEDULE") != "0 19 * * *":
         mode = "notion-publish"
     elif event == "push":
         mode = "assets" if can_refresh() else "build"

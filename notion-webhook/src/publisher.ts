@@ -60,7 +60,7 @@ export function verifyRequest(request: Request, env: Env) {
 
 export function eligibleEvent(body: ObjectValue, now = Date.now()): boolean {
 	if (id(body.workspace_id) !== id(TARGET.workspace)) return false
-	if (!["page.created", "page.properties_updated", "page.content_updated"].includes(String(body.type))) return false
+	if (!["page.created", "page.properties_updated"].includes(String(body.type))) return false
 	const entity = object(body.entity)
 	if (entity.type !== "page" || !/^[a-f0-9]{32}$/.test(id(entity.id))) return false
 	if (typeof body.id !== "string" || !/^[a-f0-9-]{36}$/.test(body.id)) return false

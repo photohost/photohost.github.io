@@ -64,7 +64,7 @@ delete 會刪除 Issue 及其討論，無法在 GitHub 還原。Git 先前的提
 4. 執行 `npx wrangler deploy`，再執行 `npx wrangler secret bulk .env`，存入 `WEBHOOK_PATH_TOKEN` 和 `WEBHOOK_BOOTSTRAP_PUBLIC_KEY`。
 5. 在 Cloudflare Worker → Settings → Variables and Secrets，新增 Secret `GITHUB_ACTIONS_TOKEN`；值是前述 GitHub Actions 讀寫權杖。
 6. 訂閱網址為部署後的 `https://<worker>.<subdomain>.workers.dev/notion/<WEBHOOK_PATH_TOKEN>`。把完整網址填入 Notion 開發者後台 → Gmeek Sync → Webhooks；此連線須具有 blog 資料庫的存取權。請勿公開接收路徑。
-7. 訂閱 `page.created`、`page.properties_updated`、`page.content_updated`。
+7. 訂閱 `page.created`、`page.properties_updated`（發布指令都是改 Status／置頂，不需要訂閱 `page.content_updated`；接收端也會忽略它）。
 8. 使用 Worker 私有日誌取得 `BOOTSTRAP_ENCRYPTED=...`，將該日誌存為本機暫存檔，再執行 `node setup.mjs capture <日誌檔>`。程式會用本機私鑰解密，把驗證碼寫入 `.env`，不印出明碼。
 9. 再執行 `npx wrangler secret bulk .env`，設定 `NOTION_WEBHOOK_SECRET`。本人可在私有終端執行 `node setup.mjs show-code`，把驗證碼貼回 Notion 訂閱介面，完成驗證。
 10. 將要更新的文章改成 repost，確認 GitHub 出現「Notion 自動發布」，網站成功後 Notion 回到 Published。
