@@ -63,10 +63,14 @@ test("wrong workspace, database, type, and stale events are ignored", async () =
 	}
 })
 
-test("content, creation, and normalized data-source parent IDs are supported", () => {
-	for (const type of ["page.content_updated", "page.created", "page.properties_updated"]) {
+test("creation, property changes, and normalized data-source parent IDs are supported", () => {
+	for (const type of ["page.created", "page.properties_updated"]) {
 		assert.equal(eligibleEvent(payload({ type, data: { parent: { id: TARGET.dataSource.replaceAll("-", "") } } })), true)
 	}
+})
+
+test("body edits never start a publication (publishing is driven by Status changes)", () => {
+	assert.equal(eligibleEvent(payload({ type: "page.content_updated" })), false)
 })
 
 test("unverified execute calls still cannot dispatch when ingress verification is disabled", async () => {

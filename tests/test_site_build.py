@@ -186,8 +186,8 @@ class SiteBuildTests(unittest.TestCase):
             ("issues", "", "", "build"),
             ("workflow_dispatch", "notion-publish", "", "notion-publish"),
             ("workflow_dispatch", "notion-preview", "", "notion-preview"),
-            ("schedule", "", "0 16 * * *", "build"),
-            ("schedule", "", "2,7,12 * * * *", "notion-publish"),
+            ("schedule", "", "0 19 * * *", "build"),
+            ("schedule", "", "2,32 * * * *", "notion-publish"),
         ):
             Path("outputs").write_text("")
             with patch.dict(os.environ, {"EVENT": event, "INPUT_MODE": input_mode,
