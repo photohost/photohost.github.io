@@ -435,6 +435,29 @@ def publication_time(site):
     return dt.datetime.now(dt.timezone(dt.timedelta(hours=site.get("UTC", 8)))).replace(microsecond=0)
 
 
+def first_site_timestamp(previous, issue, now):
+    """Site date a repost keeps: the first publication, never the repost time."""
+    def valid(value):
+        return isinstance(value, int) and not isinstance(value, bool) and value > 0
+    if valid(previous.get("notion_first_timestamp")):
+        return previous["notion_first_timestamp"]
+    published = previous.get("notion_published_at")
+    if published:
+        try:
+            return int(dt.datetime.fromisoformat(published).timestamp())
+        except ValueError:
+            pass
+    if previous.get("notion_timestamp_override") is None and valid(previous.get("timestamp")):
+        return previous["timestamp"]
+    created = (issue or {}).get("created_at")
+    if created:
+        try:
+            return int(dt.datetime.fromisoformat(created.replace("Z", "+00:00")).timestamp())
+        except ValueError:
+            pass
+    return now
+
+
 def extract_site_timestamp(blocks, site):
     """Read a standalone final Notion block before Markdown escaping/fencing."""
     index = len(blocks) - 1
@@ -638,6 +661,7 @@ class Sync:
                 if not markdown.strip():
                     raise SyncError(f"{title}: article body is empty")
                 meta = source_config(issue.get("body")) if issue else {}
+                previous = dict(meta)
                 # Keep enough metadata in the Issue to recover its URL even if the
                 # response or the following state-file commit is interrupted.
                 meta["notion_slug"] = slug
@@ -654,7 +678,11 @@ class Sync:
                          article_digest(title, article_body(markdown, pid, meta), tags) == old_digest)
                 if not retry:
                     timestamp = publication_time(self.site)
-                    meta["timestamp"] = site_timestamp if site_timestamp is not None else int(timestamp.timestamp())
+                    # A repost keeps the first publication date; only an explicit
+                    # footer timestamp changes it. "日期" in Notion still shows this run.
+                    first = first_site_timestamp(previous, issue, int(timestamp.timestamp()))
+                    meta["notion_first_timestamp"] = first
+                    meta["timestamp"] = site_timestamp if site_timestamp is not None else first
                     meta["notion_published_at"] = timestamp.isoformat()
                 body = article_body(markdown, pid, meta)
                 if len(body.encode("utf-8")) > 60000:
