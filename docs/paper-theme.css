@@ -1,0 +1,68 @@
+/* Paper theme: solid paper panels, ruled grid, dark variant. Loaded last. */
+html {
+    --paper-bg: #f3eee4; --paper-panel: #f8f4ec; --paper-ink: #2b2620; --paper-muted: #6e655a;
+    --paper-accent: #a63d2a; --paper-line: #cfc6b6; --paper-grid: rgba(166,61,42,.16);
+    --paper-hover: rgba(166,61,42,.08);
+}
+html[data-paper-theme="dark"] {
+    --paper-bg: #141312; --paper-panel: #1b1a18; --paper-ink: #e6e0d4; --paper-muted: #9c9587;
+    --paper-accent: #d0745f; --paper-line: #3a3732; --paper-grid: rgba(208,116,95,.14);
+    --paper-hover: rgba(208,116,95,.12);
+}
+/* Glass and starfield off everywhere: solid paper only. */
+html, body, #header, .Box, #postBody, .reader-button, .pagination a, #header .btn, dialog {
+    -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+html, body { background: var(--paper-bg) !important; color: var(--paper-ink) !important; }
+html[data-blog-layout="post"] body {
+    background-color: var(--paper-bg) !important;
+    background-image:
+        linear-gradient(to right, var(--paper-grid) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--paper-grid) 1px, transparent 1px) !important;
+    background-size: 32px 32px !important;
+    filter: none !important;
+}
+html[data-blog-layout="post"] #postBody, html[data-blog-layout="post"] .markdown-body {
+    background: var(--paper-panel) !important; color: var(--paper-ink) !important;
+    box-shadow: 0 0 0 1px var(--paper-line), 0 18px 40px -28px rgba(43,38,32,.35);
+}
+#header, .Box, .SideNav-item, .Label { color: var(--paper-ink) !important; }
+#header, .Box { background: var(--paper-panel) !important; border-color: var(--paper-line) !important; }
+.SideNav-item { border-bottom: 1px dotted var(--paper-line); }
+.SideNav-item:hover { background: var(--paper-hover) !important; color: var(--paper-accent) !important; }
+a, .blogTitle a { color: var(--paper-ink); }
+a:hover { color: var(--paper-accent); }
+.subnav-search-input, input, textarea { background: var(--paper-panel) !important; color: var(--paper-ink) !important; border-color: var(--paper-line) !important; }
+
+/* Ruled background for the home list: columns of vertical text, alternating thick/thin and direction. */
+#paper-columns {
+    position: fixed; inset: 0; z-index: 0; display: flex; justify-content: space-around;
+    pointer-events: none; overflow: hidden; color: var(--paper-ink);
+    font-family: 'Noto Serif TC', 'Noto Serif JP', serif;
+}
+#paper-columns .paper-col { height: 100%; overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent); }
+#paper-columns .paper-run { writing-mode: vertical-rl; white-space: nowrap; letter-spacing: .08em;
+    animation-timing-function: linear; animation-iteration-count: infinite; will-change: transform; }
+#paper-columns .paper-run.up { animation-name: paperUp; }
+#paper-columns .paper-run.dn { animation-name: paperDown; }
+#paper-columns .paper-col.thick .paper-run { font-size: 34px; font-weight: 600; opacity: .10; animation-duration: 11s; }
+#paper-columns .paper-col.thin .paper-run { font-size: 16px; font-weight: 400; opacity: .14; animation-duration: 6s; }
+html[data-paper-motion="paused"] #paper-columns .paper-run { animation-play-state: paused; }
+@keyframes paperUp { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+@keyframes paperDown { from { transform: translateY(-50%); } to { transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { #paper-columns .paper-run { animation: none !important; } }
+@media (max-width: 700px) { #paper-columns .paper-col:nth-child(n+6) { display: none; } }
+html[data-blog-layout="list"] #content, html[data-blog-layout="list"] .Box { position: relative; z-index: 1; }
+
+/* Theme switch: label shows the current state (白天 = light, 夜晚 = dark). */
+#paper-theme-toggle {
+    position: fixed; left: 24px; bottom: 24px; z-index: 20; cursor: pointer;
+    border: 1px solid var(--paper-line); border-radius: 999px; padding: 6px 14px;
+    background: var(--paper-panel); color: var(--paper-ink);
+    font-family: 'Noto Serif TC', 'Noto Serif JP', serif; font-size: 13px; letter-spacing: .08em;
+}
+#paper-theme-toggle:hover { color: var(--paper-accent); border-color: var(--paper-accent); }
+#paper-theme-toggle:focus-visible { outline: 2px solid var(--paper-accent); outline-offset: 3px; }
+@media print { #paper-columns, #paper-theme-toggle { display: none; } }
