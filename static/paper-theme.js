@@ -62,6 +62,19 @@
             try { localStorage.setItem(KEY, next); } catch {}
             label(button);
         });
+        if (root.dataset.blogLayout === 'list') {
+            // Text links instead of icon buttons, as in the approved B3 design.
+            document.querySelectorAll('#header .title-right > a.btn').forEach(a => {
+                const href = a.getAttribute('href') || '';
+                const text = href.includes('movietckt') ? '觀影' : href.includes('about') ? '關於' : '';
+                if (!text) return;
+                const span = document.createElement('span');
+                span.className = 'paper-nav-label';
+                span.textContent = text;
+                a.append(span);
+                a.setAttribute('aria-label', a.getAttribute('title') || text);
+            });
+        }
         const slot = root.dataset.blogLayout === 'list' ? document.querySelector('#header .title-right') : null;
         (slot || document.body).append(button);
 

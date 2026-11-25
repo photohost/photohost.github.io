@@ -14,6 +14,10 @@ document.addEventListener('DOMContentLoaded', () => {
     form.innerHTML = '<input id="inline-search-input" type="search" placeholder="搜尋標題或標籤…" aria-label="搜尋標題或標籤" autocomplete="off" disabled><button class="search-clear" type="button" aria-label="清除搜尋" hidden>×</button><button id="buttonSearch" type="button" aria-label="展開搜尋" aria-expanded="false" aria-controls="inline-search-input search-options search-results"></button>';
     const button = form.querySelector('#buttonSearch');
     const icon = oldButton.querySelector('svg')?.cloneNode(true);
+    const label = document.createElement('span');
+    label.className = 'search-label';
+    label.textContent = '搜尋';
+    button.append(label);
     if (icon) { icon.setAttribute('aria-hidden', 'true'); button.append(icon); }
     oldButton.replaceWith(form);
     const input = form.querySelector('input');

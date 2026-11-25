@@ -239,3 +239,62 @@ html[data-blog-layout="list"] #header .title-right { background: var(--paper-sof
     html[data-blog-layout="list"] #header .title-right { background: transparent; border: 0; padding: 0; gap: 8px; flex-wrap: wrap; }
     #paper-columns .paper-run { opacity: .07 !important; }
 }
+
+/* ===== Home controls as plain text (B3): 搜尋 / 觀影 / 關於 / 白天·夜晚 ===== */
+html[data-blog-layout="list"] #header .title-right { background: transparent; border: 0; padding: 0; gap: 18px; }
+html[data-blog-layout="list"] #header .title-right > a.btn,
+html[data-blog-layout="list"] #header .title-right > #paper-theme-toggle,
+html[data-blog-layout="list"] #header #buttonSearch {
+    background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+    width: auto; height: auto; min-height: 0; padding: 4px 6px !important; font-size: 14px; letter-spacing: .18em; line-height: 1.6;
+    color: var(--paper-muted) !important; text-decoration: none; cursor: pointer;
+    border-bottom: 1px solid transparent !important; transition: color .2s, border-color .2s;
+}
+html[data-blog-layout="list"] #header .title-right > a.btn svg { display: none; }
+html[data-blog-layout="list"] #header .title-right > a.btn:hover,
+html[data-blog-layout="list"] #header .title-right > #paper-theme-toggle:hover,
+html[data-blog-layout="list"] #header .inline-search:not(.is-expanded) #buttonSearch:hover {
+    color: var(--paper-accent) !important; border-bottom-color: var(--paper-accent) !important; background: transparent !important;
+}
+html[data-blog-layout="list"] #header .title-right > a.btn:focus-visible,
+html[data-blog-layout="list"] #header .title-right > #paper-theme-toggle:focus-visible,
+html[data-blog-layout="list"] #header #buttonSearch:focus-visible { outline: 1px dashed var(--paper-accent); outline-offset: 3px; }
+
+/* Expanding search: a text at rest; the box grows smoothly (0.5s), the input fades in after half, magnifier turns 90° and the frame lights up. */
+html[data-blog-layout="list"] #header .inline-search,
+html[data-blog-layout="list"] #header .inline-search.is-expanded {
+    position: relative; left: auto; right: auto; top: auto; bottom: auto; width: 56px; height: 34px; overflow: visible;
+    background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; z-index: 30;
+}
+html[data-blog-layout="list"] #header .inline-search::before {
+    content: ''; position: absolute; left: -6px; top: -4px; height: 42px; width: 68px; box-sizing: border-box;
+    background: var(--paper-panel); border: 1px solid transparent; border-radius: 2px; opacity: 0;
+    transition: width .5s cubic-bezier(.6,0,.2,1), opacity .2s ease, border-color .3s ease, box-shadow .3s ease;
+}
+html[data-blog-layout="list"] #header .inline-search.is-expanded::before {
+    width: min(360px, calc(100vw - 40px)); opacity: 1; border-color: var(--paper-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--paper-accent) 22%, transparent), 0 10px 24px -14px rgba(43,38,32,.5);
+}
+html[data-blog-layout="list"] #header #buttonSearch { position: absolute; left: 0; top: 0; right: auto; z-index: 1; width: 56px; height: 34px; display: grid; place-items: center; transition: left .5s cubic-bezier(.6,0,.2,1), width .5s cubic-bezier(.6,0,.2,1); }
+html[data-blog-layout="list"] #header .inline-search.is-expanded #buttonSearch { left: calc(min(360px, 100vw - 40px) - 56px); border-bottom-color: transparent !important; }
+html[data-blog-layout="list"] #header #buttonSearch > * { grid-area: 1 / 1; transition: opacity .25s ease, transform .5s cubic-bezier(.6,0,.2,1); }
+html[data-blog-layout="list"] #header #buttonSearch svg { display: block; width: 16px; height: 16px; opacity: 0; }
+html[data-blog-layout="list"] #header .inline-search.is-expanded #buttonSearch svg { opacity: 1; transform: rotate(90deg); color: var(--paper-accent); }
+html[data-blog-layout="list"] #header .inline-search.is-expanded #buttonSearch .search-label { opacity: 0; }
+html[data-blog-layout="list"] #header .inline-search > input {
+    position: absolute; left: 6px; top: -4px; height: 42px; inset-inline-end: auto; width: calc(min(360px, 100vw - 40px) - 112px); box-sizing: border-box;
+    padding: 0 8px; margin: 0; font-size: 14px; letter-spacing: .04em; color: var(--paper-ink) !important; z-index: 1;
+    opacity: 0; visibility: hidden; transition: opacity .2s ease, visibility 0s .2s;
+}
+html[data-blog-layout="list"] #header .inline-search.is-expanded > input { opacity: 1; visibility: visible; transition-delay: .25s, 0s; }
+html[data-blog-layout="list"] #header .inline-search .search-clear { position: absolute; left: calc(min(360px, 100vw - 40px) - 92px); top: 0; right: auto; width: 32px; height: 34px; z-index: 1; }
+@media (max-width: 760px) {
+    html[data-blog-layout="list"] #header .title-right { gap: 14px; flex-wrap: nowrap; }
+    html[data-blog-layout="list"] #header .inline-search.is-expanded { left: auto; top: auto; width: 56px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    html[data-blog-layout="list"] #header .inline-search::before, html[data-blog-layout="list"] #header #buttonSearch, html[data-blog-layout="list"] #header #buttonSearch > * { transition: none; }
+}
+/* The header (and the expanding search box inside it) must sit above the list rows. */
+html[data-blog-layout="list"] #header { position: sticky; z-index: 40; }
+html[data-blog-layout="list"] #content { position: relative; z-index: 1; }
