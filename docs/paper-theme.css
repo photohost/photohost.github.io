@@ -229,3 +229,13 @@ html[data-blog-layout="post"] #footer { border-top: 1px dotted var(--paper-line)
     html[data-blog-layout="list"] .paginate-container, html[data-blog-layout="list"] .feed-loader { grid-column: 1; margin: 20px; }
     html[data-blog-layout="list"] .listLabels { padding-left: 8px; gap: 14px; }
 }
+
+/* ===== Readability: text never sits directly on flowing columns ===== */
+html[data-blog-layout="list"] body { background: linear-gradient(to right, transparent 220px, var(--paper-soft) 220px) !important; }
+html[data-blog-layout="list"] #header .title-right { background: var(--paper-soft); padding: 10px; border: 1px solid var(--paper-line); border-radius: 2px; }
+@media (max-width: 760px) {
+    html[data-blog-layout="list"] body { background: var(--paper-soft) !important; }
+    html[data-blog-layout="list"] #header { background: var(--paper-soft); }
+    html[data-blog-layout="list"] #header .title-right { background: transparent; border: 0; padding: 0; gap: 8px; flex-wrap: wrap; }
+    #paper-columns .paper-run { opacity: .07 !important; }
+}
