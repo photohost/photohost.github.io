@@ -305,8 +305,8 @@ html[data-blog-layout="list"] #header .title-right > * { margin-left: 0 !importa
 html[data-blog-layout="post"] {
     background-image:
         linear-gradient(to right, color-mix(in srgb, var(--paper-line) 38%, transparent) 1px, transparent 1px),
-        linear-gradient(to bottom, color-mix(in srgb, var(--paper-line) 38%, transparent) 1px, transparent 1px);
-    background-size: 28px 28px;
+        linear-gradient(to bottom, color-mix(in srgb, var(--paper-line) 38%, transparent) 1px, transparent 1px) !important;
+    background-size: 28px 28px !important;
 }
 html[data-blog-layout="post"] body {
     max-width: 720px; margin: 88px auto 56px; padding: 56px 60px 36px;
