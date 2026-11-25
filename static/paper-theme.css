@@ -361,7 +361,8 @@ html[data-blog-layout="post"] .article-meta .Label.reading-time::before { displa
 
 /* Numbered section headings: red mono number, no underline rule */
 html[data-blog-layout="post"] #postBody :is(h1, h2, h3, h4, h5, h6) {
-    border-bottom: 0 !important; padding-bottom: 0; margin: 2.2em 0 1em; font-size: 22px; font-weight: 600; letter-spacing: .04em;
+    display: block; background: transparent !important; border: 0 !important; border-radius: 0; padding: 0; margin: 2.2em 0 1em;
+    font-size: 22px; font-weight: 600; letter-spacing: .04em;
 }
 html[data-blog-layout="post"] #postBody :is(h2, h3, h4, h5, h6) { font-size: 19px; }
 html[data-blog-layout="post"] #postBody :is(h1, h2, h3, h4, h5, h6)[data-num]::before {
