@@ -298,3 +298,5 @@ html[data-blog-layout="list"] #header .inline-search .search-clear { position: a
 /* The header (and the expanding search box inside it) must sit above the list rows. */
 html[data-blog-layout="list"] #header { position: sticky; z-index: 40; }
 html[data-blog-layout="list"] #content { position: relative; z-index: 1; }
+/* Same horizontal axis for every home control (the toggle inherited a margin-right). */
+html[data-blog-layout="list"] #header .title-right > * { margin-left: 0 !important; margin-right: 0 !important; }
