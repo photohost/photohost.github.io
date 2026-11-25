@@ -3,6 +3,7 @@ import ast
 from datetime import datetime, timedelta, timezone
 from html import escape
 import json
+import math
 import os
 import re
 from pathlib import Path
@@ -183,6 +184,57 @@ def adapted_tree(source):
     return ast.fix_missing_locations(tree)
 
 
+READING_CHARS_PER_MINUTE = 400
+PAGER = re.compile(r'<nav class="post-pager"[^>]*>.*?</nav>\n?', re.S)
+PAGER_ANCHOR = '<div style="font-size:small;margin-top:8px;float:right;">'
+
+
+def reading_minutes(word_count):
+    """Whole minutes to read an article of Gmeek's character count; None when it is unknown."""
+    if isinstance(word_count, bool) or not isinstance(word_count, (int, float)) or word_count <= 0:
+        return None
+    return max(1, math.ceil(word_count / READING_CHARS_PER_MINUTE))
+
+
+def article_neighbours(posts):
+    """Map each article key to (older, newer) by publication order; ties keep Gmeek's own order."""
+    def stamp(item):
+        created = item[1].get("createdAt")
+        return created if isinstance(created, (int, float)) and not isinstance(created, bool) else 0
+
+    ordered = sorted(enumerate(posts.items()), key=lambda entry: (stamp(entry[1]), -entry[0]))
+    items = [entry[1] for entry in ordered]
+    result = {}
+    for position, (key, _post) in enumerate(items):
+        older = items[position - 1][1] if position > 0 else None
+        newer = items[position + 1][1] if position + 1 < len(items) else None
+        result[key] = (older, newer)
+    return result
+
+
+def with_pager(html, neighbours):
+    """Replace any previous pager with links to the older and newer article."""
+    html = PAGER.sub("", html, count=1)
+    if not neighbours or not any(neighbours) or PAGER_ANCHOR not in html:
+        return html
+
+    def link(post, forward):
+        if not post:
+            return '<span class="is-empty"></span>'
+        href = escape(post.get("postUrl", "").lstrip("/"), quote=True)
+        title = escape(post.get("postTitle", ""))
+        if forward:
+            inner = f'<small>下一篇</small><strong>{title}</strong><small aria-hidden="true">→</small>'
+        else:
+            inner = f'<small><span aria-hidden="true">← </span>上一篇</small><strong>{title}</strong>'
+        return f'<a class="{"next" if forward else "prev"}" href="/{href}" rel="{"next" if forward else "prev"}">{inner}</a>'
+
+    older, newer = neighbours
+    pager = ('<nav class="post-pager" aria-label="上一篇與下一篇">'
+             + link(older, False) + link(newer, True) + '</nav>\n')
+    return html.replace(PAGER_ANCHOR, pager + PAGER_ANCHOR, 1)
+
+
 def add_article_metadata(index, state, batch):
     published = {int(page["issue"]): page.get("published_at")
                  for page in state.get("pages", {}).values() if page.get("issue")}
@@ -198,6 +250,7 @@ def add_article_metadata(index, state, batch):
             text = f'<a href="{href}">{text}</a>'
         return f'<span class="Label" style="background-color:{color}">{text}</span>'
 
+    neighbours = article_neighbours(index["postListJson"])
     for key, post in index["postListJson"].items():
         path = Path("docs/post") / Path(post["htmlDir"]).name
         if not path.is_file():
@@ -217,6 +270,9 @@ def add_article_metadata(index, state, batch):
         badges = [badge(date, post["dateLabelColor"])]
         badges.extend(badge(label, colors.get(label, "#595959"), "/tag.html#" + quote(label, safe=""))
                       for label in post["labels"])
+        minutes = reading_minutes(post.get("wordCount"))
+        if minutes:
+            badges.append(f'<span class="Label reading-time" style="background-color:#595959">約 {minutes} 分鐘</span>')
         metadata = '<div class="article-meta" aria-label="發布時間與標籤">' + "".join(badges) + '</div>'
         original = path.read_text(encoding="utf-8")
         html = re.sub(r'<div class="article-meta"[^>]*>.*?</div>\n    ', "", original, count=1)
@@ -224,6 +280,7 @@ def add_article_metadata(index, state, batch):
         if anchor not in html:
             raise SyncError(f"Article metadata insertion point missing: {path.name}")
         updated = html.replace(anchor, metadata + "\n    " + anchor, 1)
+        updated = with_pager(updated, neighbours.get(key))
         if original != updated:
             path.write_text(updated, encoding="utf-8")
 

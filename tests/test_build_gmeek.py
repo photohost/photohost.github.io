@@ -10,7 +10,8 @@ from unittest.mock import Mock, patch
 from urllib.error import HTTPError, URLError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from build_gmeek import add_article_metadata, install_incremental_build, remove_home_rss_button, render_markdown
+from build_gmeek import (add_article_metadata, article_neighbours, install_incremental_build, reading_minutes,
+                         remove_home_rss_button, render_markdown, with_pager)
 from notion_sync import SyncError
 
 
@@ -239,3 +240,62 @@ class ArticleDateLabelTests(unittest.TestCase):
     def test_without_override_created_at_is_the_publish_time(self):
         html = self.render(1795450360)  # 2026-11-24 00:12:40 +08:00
         self.assertIn("2026-11-24 00:12", html)
+
+
+class ArticlePagerTests(unittest.TestCase):
+    posts = {
+        "P1": {"postTitle": "Old", "postUrl": "post/old.html", "createdAt": 100},
+        "P3": {"postTitle": "New <b>", "postUrl": "post/new.html", "createdAt": 300},
+        "P2": {"postTitle": "Mid", "postUrl": "post/mid.html", "createdAt": 200},
+    }
+    page = '<div id="content"><div id="postBody">x</div>\n<div style="font-size:small;margin-top:8px;float:right;">Less is best</div></div>'
+
+    def test_neighbours_follow_publication_order(self):
+        result = article_neighbours(self.posts)
+        self.assertEqual(result["P2"][0]["postTitle"], "Old")
+        self.assertEqual(result["P2"][1]["postTitle"], "New <b>")
+        self.assertIsNone(result["P1"][0])
+        self.assertIsNone(result["P3"][1])
+
+    def test_pager_links_and_escaping(self):
+        html = with_pager(self.page, article_neighbours(self.posts)["P2"])
+        self.assertIn('href="/post/old.html" rel="prev"', html)
+        self.assertIn('href="/post/new.html" rel="next"', html)
+        self.assertIn("New &lt;b&gt;", html)
+        self.assertLess(html.index("post-pager"), html.index("Less is best"))
+
+    def test_pager_is_replaced_not_duplicated(self):
+        neighbours = article_neighbours(self.posts)["P2"]
+        once = with_pager(self.page, neighbours)
+        self.assertEqual(with_pager(once, neighbours), once)
+        self.assertEqual(once.count("post-pager"), 1)
+
+    def test_first_article_has_empty_previous_slot(self):
+        html = with_pager(self.page, article_neighbours(self.posts)["P1"])
+        self.assertIn('<span class="is-empty"></span>', html)
+        self.assertNotIn('rel="prev"', html)
+
+    def test_page_without_anchor_is_untouched(self):
+        self.assertEqual(with_pager("<p>x</p>", article_neighbours(self.posts)["P2"]), "<p>x</p>")
+
+    def test_reading_minutes(self):
+        self.assertEqual(reading_minutes(906), 3)
+        self.assertEqual(reading_minutes(10), 1)
+        self.assertIsNone(reading_minutes(None))
+        self.assertIsNone(reading_minutes(0))
+        self.assertIsNone(reading_minutes(True))
+
+    def test_reading_time_shown_in_metadata(self):
+        with tempfile.TemporaryDirectory() as temp:
+            old = Path.cwd()
+            os.chdir(temp)
+            try:
+                Path("docs/post").mkdir(parents=True)
+                Path("docs/post/a.html").write_text('<body>\n    <div id="content">x</div>')
+                index = {"UTC": 8, "labelColorDict": {}, "postListJson": {"P7": {
+                    "htmlDir": "docs/post/a.html", "createdDate": "2026-02-17", "createdAt": 1771257600,
+                    "dateLabelColor": "#1f883d", "labels": [], "wordCount": 1500}}}
+                add_article_metadata(index, {"pages": {}}, [])
+                self.assertIn("約 4 分鐘", Path("docs/post/a.html").read_text())
+            finally:
+                os.chdir(old)
