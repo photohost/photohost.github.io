@@ -18,6 +18,18 @@ class PaperThemeTests(unittest.TestCase):
             self.assertTrue(6 <= len(text) <= 22, text)
             self.assertNotIn("http", text)
 
+    def test_home_uses_two_column_sheet_and_calm_column_speed(self):
+        css = Path("static/paper-theme.css").read_text(encoding="utf-8")
+        js = Path("static/paper-theme.js").read_text(encoding="utf-8")
+        self.assertIn("grid-template-columns: 220px", css)
+        self.assertIn("writing-mode: vertical-rl", css)
+        # Columns are children of <html> so they stay behind the sheet.
+        self.assertIn("insertBefore(wrap, document.body)", js)
+        # Speed is px/s derived from loop length, not a fixed 11s/6s loop of a very tall run.
+        self.assertIn("SPEED = { thick: 12, thin: 22 }", js)
+        self.assertNotIn("animation-duration: 11s", css)
+        self.assertNotIn("animation-duration: 6s", css)
+
 
 if __name__ == "__main__":
     unittest.main()
