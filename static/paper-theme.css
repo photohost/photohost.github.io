@@ -208,19 +208,10 @@ html[data-blog-layout="post"] #postBody, html[data-blog-layout="post"] .markdown
 #postBody table tr { background: transparent !important; }
 #postBody table tr:nth-child(2n) { background: var(--paper-code) !important; }
 #postBody hr { background: var(--paper-line) !important; border: 0; height: 1px; margin: 2em 0; }
-/* Table of contents: same flat paper, no glass. */
-#article-toc { background: var(--paper-panel) !important; background-image: none !important; border: 1px solid var(--paper-line) !important; border-radius: 0 !important; box-shadow: none !important; padding: 16px 16px 14px; color: var(--paper-ink) !important; }
-#article-toc summary { color: var(--paper-ink) !important; padding: 4px 4px 8px; letter-spacing: .08em; border-radius: 0; }
-#article-toc a { color: var(--paper-muted) !important; border-radius: 0 !important; padding-top: 8px; padding-bottom: 8px; line-height: 1.6; }
-#article-toc a:hover, #article-toc a:focus-visible { background: var(--paper-hover) !important; color: var(--paper-accent) !important; }
-#article-toc a[aria-current="location"] { background: var(--paper-hover) !important; color: var(--paper-ink) !important; border-left-color: var(--paper-accent) !important; }
-#article-toc > nav[aria-label="文章閱讀位置"] { gap: 10px; padding-top: 12px; border-top: 1px dotted var(--paper-line); }
 /* Footer, search, image viewer. */
 #footer { color: var(--paper-muted) !important; font-size: 12px; letter-spacing: .06em; line-height: 1.9; padding-top: 22px; margin-top: 28px; border-top: 1px dotted var(--paper-line); }
 html[data-blog-layout="post"] #footer { border-top: 1px dotted var(--paper-line); }
 #search-results > p, #search-options { color: var(--paper-muted); }
-#image-viewer { background: var(--paper-panel) !important; color: var(--paper-ink) !important; border: 1px solid var(--paper-line) !important; border-radius: 0 !important; box-shadow: none !important; }
-#image-viewer .viewer-toolbar { background: transparent !important; border-radius: 0 !important; gap: 8px; }
 @media (max-width: 760px) {
     html[data-blog-layout="post"] body { margin: 0; padding: 28px 20px 28px; }
     html[data-blog-layout="post"] .postTitle { font-size: 24px; }
@@ -308,103 +299,160 @@ html[data-blog-layout="list"] #header .title-right > * { margin-left: 0 !importa
     background: var(--paper-accent); transform-origin: left; transform: scaleX(0);
     pointer-events: none; transition: transform .15s linear;
 }
-/* Body becomes a narrower centered column with room for the tick TOC on the left */
-html[data-blog-layout="post"] body.has-article-toc {
-    max-width: 780px; padding-left: 48px; padding-right: 48px;
+/* Sheet of paper on a faint grid. Card 720px, text column 600px = about 34 characters per line. */
+html[data-blog-layout="post"] {
+    background-image:
+        linear-gradient(to right, color-mix(in srgb, var(--paper-line) 38%, transparent) 1px, transparent 1px),
+        linear-gradient(to bottom, color-mix(in srgb, var(--paper-line) 38%, transparent) 1px, transparent 1px) !important;
+    background-size: 28px 28px !important;
 }
-/* Tick TOC: left rail, fixed alongside the article */
+html[data-blog-layout="post"] body {
+    max-width: 720px; margin: 88px auto 56px; padding: 56px 60px 36px;
+}
+html[data-blog-layout="post"] #header .title-right { display: none; }
+
+/* Top bar: back link, title (fades in once the page title scrolls away), 目錄, theme switch */
+.post-topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50; height: 48px; box-sizing: border-box;
+    display: grid; grid-template-columns: 1fr minmax(0, 2fr) 1fr; align-items: center; gap: 16px;
+    padding: 0 24px; background: transparent; border-bottom: 1px solid transparent;
+    font-family: 'Noto Serif TC', 'Noto Serif JP', serif; font-size: 13px; letter-spacing: .08em;
+    transition: background-color .25s ease, border-color .25s ease, backdrop-filter .25s ease;
+}
+.post-topbar.is-scrolled {
+    background: var(--paper-soft); border-bottom-color: var(--paper-line);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.post-topbar-back { justify-self: start; color: var(--paper-muted) !important; text-decoration: none; padding: 6px 0; white-space: nowrap; }
+.post-topbar-back:hover { color: var(--paper-accent) !important; }
+.post-topbar-title {
+    justify-self: center; max-width: 100%; color: var(--paper-ink); font-size: 14px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0; transition: opacity .25s ease;
+}
+.post-topbar.is-titled .post-topbar-title { opacity: 1; }
+.post-topbar-actions { justify-self: end; display: flex; align-items: center; gap: 20px; }
+.post-topbar-btn, .post-topbar #paper-theme-toggle {
+    all: unset; box-sizing: border-box; cursor: pointer; padding: 6px 0; color: var(--paper-muted);
+    font-family: inherit; font-size: 13px; letter-spacing: .08em; border-radius: 0;
+}
+.post-topbar-btn:hover, .post-topbar #paper-theme-toggle:hover, .post-topbar-btn[aria-expanded="true"] { color: var(--paper-accent); }
+.post-topbar-btn:focus-visible, .post-topbar #paper-theme-toggle:focus-visible, .post-topbar-back:focus-visible { outline: 2px solid var(--paper-accent); outline-offset: 3px; }
+#post-toc-panel {
+    position: absolute; top: 48px; right: 24px; width: min(340px, calc(100vw - 32px)); max-height: calc(100vh - 72px); overflow-y: auto;
+    padding: 10px 0; background: var(--paper-panel); border: 1px solid var(--paper-line);
+    box-shadow: 0 16px 32px -20px rgba(43,38,32,.5);
+}
+#post-toc-panel[hidden] { display: none; }
+#post-toc-panel a { display: flex; gap: 14px; align-items: baseline; padding: 9px 20px; color: var(--paper-ink) !important; text-decoration: none; font-size: 14px; line-height: 1.6; }
+#post-toc-panel a:hover { background: var(--paper-hover); color: var(--paper-accent) !important; }
+#post-toc-panel a span { flex: none; min-width: 1.6em; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; color: var(--paper-accent); }
+#post-toc-panel a[data-depth="1"] { padding-left: 34px; }
+#post-toc-panel a[data-depth="2"] { padding-left: 48px; }
+#post-toc-panel a[data-depth="3"] { padding-left: 62px; }
+
+/* Title block: title, then date / tag / reading time, then one rule */
+html[data-blog-layout="post"] #header { border-bottom: 0 !important; padding: 0 !important; margin: 0 0 14px; }
+html[data-blog-layout="post"] .article-meta {
+    flex-wrap: wrap; gap: 8px 22px; margin: 0 0 40px; padding: 0 0 18px; border-bottom: 1px solid var(--paper-ink);
+}
+html[data-blog-layout="post"] .article-meta .Label.reading-time::before { display: none; }
+
+/* Numbered section headings: red mono number, no underline rule */
+html[data-blog-layout="post"] #postBody :is(h1, h2, h3, h4, h5, h6) {
+    display: block; background: transparent !important; border: 0 !important; border-radius: 0; padding: 0; margin: 2.2em 0 1em;
+    font-size: 22px; font-weight: 600; letter-spacing: .04em;
+}
+html[data-blog-layout="post"] #postBody :is(h2, h3, h4, h5, h6) { font-size: 19px; }
+html[data-blog-layout="post"] #postBody :is(h1, h2, h3, h4, h5, h6)[data-num]::before {
+    content: attr(data-num); display: inline-block; min-width: 1.9em; margin-right: .5em; vertical-align: .12em;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 13px; font-weight: 600; letter-spacing: .06em; color: var(--paper-accent);
+}
+html[data-blog-layout="post"] #postBody a.anchor { display: none; }
+
+/* Figures: wider than the text, caption underneath */
+html[data-blog-layout="post"] #postBody .post-figure { margin: 2em -40px; text-align: center; }
+html[data-blog-layout="post"] #postBody .post-figure a { display: block; border: 0; }
+html[data-blog-layout="post"] #postBody .post-figure img {
+    display: block; margin: 0 auto; width: auto; height: auto; max-width: 100%; max-height: 82vh; cursor: zoom-in;
+}
+html[data-blog-layout="post"] #postBody .post-figure figcaption {
+    margin: 10px 40px 0; font-size: 12px; line-height: 1.7; letter-spacing: .08em; color: var(--paper-muted);
+}
+html[data-blog-layout="post"] #postBody .post-figure figcaption * { color: inherit; }
+html[data-blog-layout="post"] #postBody img { max-width: 100%; height: auto; }
+
+/* Previous / next article, written by the build */
+.post-pager {
+    display: flex; justify-content: space-between; gap: 24px; clear: both;
+    margin: 48px 0 0; padding: 18px 0 0; border-top: 1px dotted var(--paper-line);
+    font-size: 13px; letter-spacing: .06em; line-height: 1.7;
+}
+.post-pager a, .post-pager span.is-empty { flex: 1 1 0; min-width: 0; display: flex; gap: 12px; align-items: baseline; text-decoration: none; color: var(--paper-ink) !important; }
+.post-pager a:hover strong { color: var(--paper-accent); }
+.post-pager .next { justify-content: flex-end; text-align: right; }
+.post-pager small { flex: none; font-size: 12px; color: var(--paper-muted); }
+.post-pager strong { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.post-pager a:focus-visible { outline: 2px solid var(--paper-accent); outline-offset: 4px; }
+html[data-blog-layout="post"] #content > div[style*="float"][style*="right"] { float: none !important; text-align: right; margin-top: 20px !important; color: var(--paper-muted); }
+
+/* Tick TOC: left rail. The wide-screen rail needs room beside the card, so it hides below 1180px. */
 #article-toc {
-    position: fixed !important; left: max(16px, calc((100vw - 780px) / 2 - 72px)); top: 50%;
-    transform: translateY(-50%); z-index: 20;
-    display: flex; flex-direction: column; gap: 2px; padding: 8px 0;
-    background: transparent !important; border: 0 !important; border-radius: 0 !important;
-    box-shadow: none !important; max-height: 80vh; overflow-y: auto;
-    scrollbar-width: none;
+    position: fixed !important; z-index: 20; top: 50%; transform: translateY(-50%);
+    left: max(16px, min(calc((100vw - 720px) / 2 - 240px), 120px));
+    display: flex; flex-direction: column; gap: 2px; padding: 8px 0; max-height: 80vh; overflow-y: auto; scrollbar-width: none;
+    background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
 }
 #article-toc::-webkit-scrollbar { display: none; }
-#article-toc summary { display: none; }
-/* Each tick: a small number that reveals the full title on hover */
 .toc-tick {
-    display: flex; align-items: center; gap: 0; padding: 5px 8px;
-    text-decoration: none; color: var(--paper-muted); font-size: 11px;
-    letter-spacing: .06em; border-radius: 2px; position: relative;
-    transition: color .2s;
+    display: flex; align-items: center; padding: 5px 8px; text-decoration: none; color: var(--paper-muted) !important;
+    font-size: 11px; letter-spacing: .06em; border-radius: 2px; transition: color .2s;
     font-family: 'IBM Plex Mono', ui-monospace, monospace;
 }
-.toc-tick:hover { color: var(--paper-accent); background: var(--paper-hover); }
-.toc-tick.is-active { color: var(--paper-accent); }
-.toc-tick.is-active .toc-num { font-weight: 600; }
+.toc-tick:hover, .toc-tick:focus-visible { color: var(--paper-accent) !important; background: var(--paper-hover); }
+.toc-tick:focus-visible { outline: 2px solid var(--paper-accent); outline-offset: 1px; }
+.toc-tick.is-active { color: var(--paper-accent) !important; font-weight: 600; }
 .toc-num { min-width: 20px; }
-/* Title tooltip: positioned to the right of the tick, never overlapping article content */
-.toc-label {
-    position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
-    white-space: nowrap; padding: 5px 12px; margin-left: 8px;
-    background: var(--paper-panel); border: 1px solid var(--paper-line);
-    color: var(--paper-ink); font-family: 'Noto Serif TC', 'Noto Serif JP', serif;
-    font-size: 13px; letter-spacing: .04em; line-height: 1.5;
-    box-shadow: 0 4px 16px -6px rgba(43,38,32,.3);
-    opacity: 0; visibility: hidden; pointer-events: none;
-    transition: opacity .18s ease, visibility 0s .18s;
-    max-width: 240px; overflow: hidden; text-overflow: ellipsis;
-}
-.toc-tick:hover .toc-label { opacity: 1; visibility: visible; transition-delay: 0s, 0s; }
-/* Indent sub-headings */
 .toc-tick[data-depth="1"] { padding-left: 16px; }
 .toc-tick[data-depth="2"] { padding-left: 24px; }
 .toc-tick[data-depth="3"] { padding-left: 32px; }
-/* Mobile collapsible TOC (hides tick rail, shows classic list) */
-#article-toc-mobile { display: none; }
-/* Article images: slightly wider than text, centered, with figure-like spacing */
-html[data-blog-layout="post"] .has-article-toc #postBody img {
-    max-width: calc(100% + 32px); margin-left: -16px; margin-right: -16px;
+/* The label stays for screen readers; sighted users get #toc-tip, sized to stay clear of the card. */
+.toc-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+#toc-tip {
+    position: fixed; z-index: 30; transform: translateY(-50%); width: max-content; box-sizing: border-box;
+    padding: 6px 12px; background: var(--paper-panel); border: 1px solid var(--paper-line); color: var(--paper-ink);
+    font-family: 'Noto Serif TC', 'Noto Serif JP', serif; font-size: 13px; letter-spacing: .04em; line-height: 1.6;
+    box-shadow: 0 4px 16px -6px rgba(43,38,32,.3); opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity .18s ease, visibility 0s .18s;
 }
-/* Override the old wide-screen grid layout from the original TOC */
-@media (min-width: 1280px) {
-    html[data-blog-layout="post"] body.has-article-toc { max-width: 780px; width: auto; overflow: visible; }
-    .has-article-toc #content { display: block; }
-    .has-article-toc #header { margin-right: 0; }
-    .has-article-toc #footer { width: 100%; }
-}
-/* When the tick rail would be too close to the article text, hide it and show mobile TOC */
-@media (max-width: 1080px) {
-    #article-toc { display: none !important; }
-    #article-toc-mobile {
-        display: block; margin: 0 0 24px; padding: 14px 16px;
-        background: var(--paper-panel); border: 1px solid var(--paper-line);
-    }
-    #article-toc-mobile summary {
-        cursor: pointer; font-size: 14px; font-weight: 600; padding: 4px;
-        color: var(--paper-ink); letter-spacing: .08em;
-    }
-    /* Show full section titles inside the mobile TOC */
-    #article-toc-mobile .toc-tick {
-        display: block; padding: 8px 10px; font-size: 13px;
-        font-family: 'Noto Serif TC', 'Noto Serif JP', serif;
-        line-height: 1.6; color: var(--paper-muted); text-decoration: none;
-        border-left: 2px solid transparent;
-    }
-    #article-toc-mobile .toc-tick[data-depth="1"] { padding-left: 22px; }
-    #article-toc-mobile .toc-tick[data-depth="2"] { padding-left: 34px; }
-    #article-toc-mobile .toc-tick.is-active { color: var(--paper-ink); border-left-color: var(--paper-accent); }
-    #article-toc-mobile .toc-tick:hover { color: var(--paper-accent); background: var(--paper-hover); }
-    #article-toc-mobile .toc-num { display: inline; margin-right: 8px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; color: var(--paper-muted); }
-    #article-toc-mobile .toc-label { position: static; opacity: 1; visibility: visible; padding: 0; margin: 0; background: transparent; border: 0; box-shadow: none; white-space: normal; display: inline; font-size: inherit; max-width: none; }
-    html[data-blog-layout="post"] body.has-article-toc { max-width: 920px; }
+#toc-tip.is-visible { opacity: 1; visibility: visible; transition-delay: 0s, 0s; }
+@media (max-width: 1179px) {
+    #article-toc, #toc-tip { display: none !important; }
 }
 @media (max-width: 760px) {
-    html[data-blog-layout="post"] body.has-article-toc { padding-left: 20px; padding-right: 20px; }
-    html[data-blog-layout="post"] .has-article-toc #postBody img { max-width: calc(100% + 16px); margin-left: -8px; margin-right: -8px; }
+    .post-topbar { grid-template-columns: auto 1fr auto; padding: 0 16px; gap: 10px; }
+    .post-topbar-actions { gap: 14px; }
+    #post-toc-panel { right: 8px; }
+    html[data-blog-layout="post"] body { margin: 48px 0 0; padding: 28px 20px 28px; }
+    html[data-blog-layout="post"] #postBody .post-figure { margin: 1.6em -8px; }
+    html[data-blog-layout="post"] #postBody .post-figure figcaption { margin: 8px 8px 0; }
+    .post-pager { flex-direction: column; gap: 10px; }
+    .post-pager .next { justify-content: flex-start; text-align: left; }
 }
 @media (prefers-reduced-motion: reduce) {
-    #reading-progress { transition: none; }
+    #reading-progress, .post-topbar, .post-topbar-title, #toc-tip { transition: none; }
 }
 
 /* ===== Paper-style Lightbox ===== */
 dialog#image-viewer {
     position: fixed; inset: 0; width: 100vw; height: 100vh;
-    max-width: none; max-height: none; margin: 0; padding: 0;
-    border: 0; background: transparent; z-index: 10000;
+    max-width: none; max-height: none; margin: 0; padding: 0; gap: 0 !important;
+    border: 0 !important; border-radius: 0 !important; box-shadow: none !important; z-index: 10000;
+    background: transparent !important; color: var(--paper-ink) !important;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
 }
+/* Neutralise the legacy dark viewer styles from reading.css. */
+dialog#image-viewer .viewer-stage { background: transparent; border-radius: 0; }
+dialog#image-viewer .viewer-caption { max-height: none; overflow: visible; }
 dialog#image-viewer[open] {
     display: flex; flex-direction: column;
 }
