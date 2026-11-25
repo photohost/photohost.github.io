@@ -394,7 +394,7 @@ html[data-blog-layout="post"] #postBody img { max-width: 100%; height: auto; }
 .post-pager small { flex: none; font-size: 12px; color: var(--paper-muted); }
 .post-pager strong { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .post-pager a:focus-visible { outline: 2px solid var(--paper-accent); outline-offset: 4px; }
-html[data-blog-layout="post"] #content > div[style*="float:right"] { float: none !important; text-align: right; margin-top: 20px !important; color: var(--paper-muted); }
+html[data-blog-layout="post"] #content > div[style*="float"][style*="right"] { float: none !important; text-align: right; margin-top: 20px !important; color: var(--paper-muted); }
 
 /* Tick TOC: left rail. The wide-screen rail needs room beside the card, so it hides below 1180px. */
 #article-toc {
