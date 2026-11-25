@@ -1,89 +1,94 @@
-/* Responsive article table of contents. */
+/* D1 "Book Page" article layout: tick TOC on the left + reading progress bar.
+   On wide screens: a narrow left rail shows tick marks (01, 02 …) for each heading.
+   Hovering a tick reveals the section title in a tooltip that never overlaps the article.
+   Current section is accented. A thin progress line at the top tracks reading position.
+   On narrow screens the tick rail hides and falls back to a collapsible TOC above the article. */
 document.addEventListener('DOMContentLoaded', () => {
     const body = document.querySelector('#postBody');
     if (!body || document.querySelector('#article-toc')) return;
     document.querySelectorAll('.toc, .toc-icon').forEach(el => el.remove());
     const headings = Array.from(body.querySelectorAll('h1,h2,h3,h4,h5,h6')).filter(el => el.textContent.trim());
     if (!headings.length) return;
-    const style = document.createElement('style');
-    style.textContent = `
-        #article-toc { margin: 0 0 28px; padding: 14px; border: 1px solid rgba(255,255,255,.5);
-            border-radius: 14px; background: rgba(242,242,242,.72); color: #313131;
-            backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
-            box-shadow: 0 8px 28px rgba(10,10,10,.12); }
-        #article-toc summary { cursor: pointer; font-size: 14px; font-weight: 600; padding: 4px; }
-        #article-toc nav { max-height: min(60vh,600px); overflow: auto; overscroll-behavior: contain; margin-top: 12px; }
-        #article-toc a { display: block; padding: 8px 10px; padding-left: calc(10px + var(--toc-depth,0) * 12px);
-            border-radius: 8px; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere;
-            color: #3e3e3e; text-decoration: none; border-left: 2px solid transparent; }
-        #article-toc a:hover, #article-toc a:focus-visible { background: rgba(234,234,234,.65); }
-        #article-toc a[aria-current="location"] { background: rgba(234,234,234,.85); border-left-color: #676767; font-weight: 600; }
-        #article-toc a:focus-visible, #article-toc summary:focus-visible { outline: 2px solid #676767; outline-offset: 2px; }
-        #postBody :is(h1,h2,h3,h4,h5,h6) { scroll-margin-top: 28px; }
-        #postBody h1 { display: block; background: transparent; color: inherit; padding: 0 0 .3em; font-size: 1.6em; border-radius: 0; }
-        @media (min-width: 1280px) {
-            body.has-article-toc { max-width: 1200px; width: calc(100% - 48px); overflow: visible; }
-            .has-article-toc #content { display: grid; grid-template-columns: minmax(0,1fr) 230px; gap: 24px 32px; align-items: start; }
-            .has-article-toc #postBody { grid-column: 1; grid-row: 1; min-width: 0; }
-            .has-article-toc #content > :not(#article-toc) { grid-column: 1; }
-            .has-article-toc #header { margin-right: 262px; }
-            .has-article-toc #footer { width: calc(100% - 262px); }
-            #article-toc { grid-column: 2; grid-row: 1; position: sticky; top: 24px; margin: 0; min-width: 0; z-index: 10; }
-            #article-toc nav { max-height: calc(100vh - 150px); }
-        }
-        @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
-    `;
-    document.head.append(style);
-    const toc = document.createElement('details');
-    toc.id = 'article-toc';
-    const summary = document.createElement('summary');
-    summary.textContent = '文章目錄';
-    const nav = document.createElement('nav');
-    nav.setAttribute('aria-label', '文章章節');
-    toc.append(summary, nav);
-    const minLevel = Math.min(...headings.map(h => Number(h.tagName[1])));
-    const entries = headings.map((heading, index) => {
+
+    /* ── progress bar ── */
+    const progress = document.createElement('div');
+    progress.id = 'reading-progress';
+    progress.setAttribute('aria-hidden', 'true');
+    document.body.append(progress);
+
+    /* ── ensure heading IDs ── */
+    headings.forEach((heading, index) => {
         if (!heading.id) {
             let id = 'article-section-' + (index + 1);
             while (document.getElementById(id)) id += '-section';
             heading.id = id;
         }
-        const link = document.createElement('a');
-        link.href = '#' + encodeURIComponent(heading.id);
-        // GitHub heading markup can contain anchor icons; only use readable text.
-        link.textContent = heading.textContent.trim();
-        link.style.setProperty('--toc-depth', Number(heading.tagName[1]) - minLevel);
-        nav.append(link);
-        link.addEventListener('click', () => {
-            // Expand any enclosing Notion toggle before the native anchor jump.
-            for (let parent = heading.parentElement; parent && parent !== body; parent = parent.parentElement) {
-                if (parent.tagName === 'DETAILS') parent.open = true;
-            }
-        });
-        return { heading, link };
     });
-    body.before(toc);
+
+    /* ── tick TOC (left rail on wide, collapsible on narrow) ── */
+    const rail = document.createElement('nav');
+    rail.id = 'article-toc';
+    rail.setAttribute('aria-label', '文章章節');
+    const minLevel = Math.min(...headings.map(h => Number(h.tagName[1])));
+
+    const entries = headings.map((heading, index) => {
+        const tick = document.createElement('a');
+        tick.href = '#' + encodeURIComponent(heading.id);
+        tick.className = 'toc-tick';
+        tick.dataset.depth = Number(heading.tagName[1]) - minLevel;
+        const num = document.createElement('span');
+        num.className = 'toc-num';
+        num.textContent = String(index + 1).padStart(2, '0');
+        const label = document.createElement('span');
+        label.className = 'toc-label';
+        label.textContent = heading.textContent.trim();
+        tick.append(num, label);
+        tick.addEventListener('click', () => {
+            for (let p = heading.parentElement; p && p !== body; p = p.parentElement)
+                if (p.tagName === 'DETAILS') p.open = true;
+        });
+        rail.append(tick);
+        return { heading, tick };
+    });
+
+    /* Narrow-screen collapsible wrapper: wraps the rail in a <details> */
+    const details = document.createElement('details');
+    details.id = 'article-toc-mobile';
+    const summary = document.createElement('summary');
+    summary.textContent = '文章目錄';
+    details.append(summary);
+
+    body.before(rail);
+    body.before(details);
     document.body.classList.add('has-article-toc');
-    const wide = matchMedia('(min-width: 1280px)');
-    const setLayout = () => { toc.open = wide.matches; };
-    setLayout();
-    wide.addEventListener('change', setLayout);
+
+    /* Clone tick links into the mobile details wrapper */
+    entries.forEach(e => {
+        const clone = e.tick.cloneNode(true);
+        clone.addEventListener('click', () => {
+            for (let p = e.heading.parentElement; p && p !== body; p = p.parentElement)
+                if (p.tagName === 'DETAILS') p.open = true;
+        });
+        details.append(clone);
+        e.mobileTick = clone;
+    });
+
+    /* ── scroll tracking ── */
     let scheduled = false;
     function update() {
         scheduled = false;
+        const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+        const pct = docHeight > 0 ? Math.min(1, Math.max(0, window.scrollY / docHeight)) : 0;
+        progress.style.transform = 'scaleX(' + pct + ')';
         let current = entries[0];
         for (const entry of entries) {
-            if (entry.heading.getClientRects().length && entry.heading.getBoundingClientRect().top <= 100) current = entry;
+            if (entry.heading.getClientRects().length && entry.heading.getBoundingClientRect().top <= 100)
+                current = entry;
         }
         for (const entry of entries) {
-            if (entry === current) entry.link.setAttribute('aria-current', 'location');
-            else entry.link.removeAttribute('aria-current');
-        }
-        // Scroll only the nav panel, never scroll the article while tracking it.
-        if (toc.open) {
-            const top = current.link.offsetTop - nav.offsetTop;
-            if (top < nav.scrollTop || top + current.link.offsetHeight > nav.scrollTop + nav.clientHeight)
-                nav.scrollTop = Math.max(0, top - nav.clientHeight / 2);
+            const active = entry === current;
+            entry.tick.classList.toggle('is-active', active);
+            if (entry.mobileTick) entry.mobileTick.classList.toggle('is-active', active);
         }
     }
     addEventListener('scroll', () => {
@@ -91,4 +96,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { passive: true });
     addEventListener('resize', update);
     update();
+
+    /* ── heading scroll-margin ── */
+    const style = document.createElement('style');
+    style.textContent = '#postBody :is(h1,h2,h3,h4,h5,h6) { scroll-margin-top: 32px; }';
+    document.head.append(style);
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches)
+        document.documentElement.style.scrollBehavior = 'smooth';
 });
