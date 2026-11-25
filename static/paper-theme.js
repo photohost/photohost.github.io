@@ -36,7 +36,15 @@
             col.append(run);
             wrap.append(col);
         });
-        document.body.prepend(wrap);
+        // Direct child of <html>: stays behind the sheet's own backgrounds instead of painting over them.
+        document.documentElement.insertBefore(wrap, document.body);
+        // Constant calm speed in px/s (distance of one loop / speed), so long text never races.
+        const SPEED = { thick: 12, thin: 22 };
+        wrap.querySelectorAll('.paper-run').forEach(run => {
+            const kind = run.parentElement.classList.contains('thick') ? 'thick' : 'thin';
+            const loop = run.scrollHeight / 2;
+            if (loop > 0) run.style.animationDuration = `${Math.round(loop / SPEED[kind])}s`;
+        });
     }
 
     document.addEventListener('visibilitychange', () => {
@@ -54,7 +62,8 @@
             try { localStorage.setItem(KEY, next); } catch {}
             label(button);
         });
-        document.body.append(button);
+        const slot = root.dataset.blogLayout === 'list' ? document.querySelector('#header .title-right') : null;
+        (slot || document.body).append(button);
 
         if (root.dataset.blogLayout === 'list' && !motion.matches) {
             fetch('/phrases.json', { credentials: 'omit' })
